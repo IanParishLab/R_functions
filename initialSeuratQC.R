@@ -1,8 +1,10 @@
 # initialSeuratQC(tmp, var_to_compare = "orig.ident", sampleName = "SHIELD004_vs_TIPTOE011", save.loc = "./")
 initialSeuratQC <- function(seu.obj, var_to_compare, var_col, sampleName, save.loc){
   
-  require(Seurat)
-  require(tidyverse)
+  suppressPackageStartupMessages({
+    library(Seurat)
+    library(tidyverse)
+  })
   
   seu.obj$var_to_compare <- seu.obj[[var_to_compare]]
   seu.obj$log10GenesPerUMI <- log10(seu.obj$nFeature_RNA) / log10(seu.obj$nCount_RNA)
@@ -102,7 +104,8 @@ initialSeuratQC <- function(seu.obj, var_to_compare, var_col, sampleName, save.l
   return(p)
 }
 
-plotCombined <- readRDS("/researchers/nicole.saw/projects/Sara_Roth_snPATHOseq/R/plotCombined.rds")
+# # example usage 1
+# plotCombined <- readRDS("/researchers/nicole.saw/projects/Sara_Roth_snPATHOseq/R/plotCombined.rds")
 # seqtype_col<- setNames(c("#007756", "#D99BBD"), c("snPATHOseq","scRNAseq"))
 # p <- initialSeuratQC(
 #   plotCombined, 
@@ -122,49 +125,50 @@ plotCombined <- readRDS("/researchers/nicole.saw/projects/Sara_Roth_snPATHOseq/R
 # print((a | b + theme(aspect.ratio = 1)) + plot_layout(widths = c(0.15,0.25)) & theme(legend.position = 'none'))
 # dev.off()
 
-so <- readRDS("/researchers/nicole.saw/projects/SHIELD/R/first_pass_merged/tiptoe_shield.rds")
-so$orig.ident[so$orig.ident == "TIPTOE"] <-  "NextGEM"
-so$orig.ident[so$orig.ident == "SHIELD"] <-  "GEM-X"
-seqtype_col<- setNames(c("#06A5FF","#00446B"), c("NextGEM","GEM-X"))
-p <- initialSeuratQC(
-  so, 
-  var_to_compare = "orig.ident",
-  sampleName = "NextGEM vs GEM-X",
-  var_col = seqtype_col,
-  save.loc = "/researchers/nicole.saw/projects/SHIELD/R/"
-)
-
-sampleName = "NextGEM vs GEM-X"
-save.loc = "/researchers/nicole.saw/projects/SHIELD/R/"
-
-a <- p[[1]]/p[[2]]/p[[3]] & scale_color_manual(values = seqtype_col)
-b <- p[[5]]
-pdf(file.path(save.loc, paste0(sampleName,".initialQC.subset.pdf")), width = 10, height = 5)
-# print(ggpubr::ggarrange(plotlist = p[c(1,5,2,3)], ncol = 2, nrow = 2, common.legend = TRUE))
-print((a | b + theme(aspect.ratio = 1)) + plot_layout(widths = c(0.15,0.25)) & theme(legend.position = 'none'))
-dev.off()
-
-so1 <- merge(subset(plotCombined, seqType == "snPATHOseq"), so)
-so1$orig.ident[so1$seqType == "snPATHOseq"] <- "snPATHOseq"
-so1$orig.ident[so1$orig.ident == "TIPTOE"] <- "NextGEM"
-so1$orig.ident[so1$orig.ident == "SHIELD"] <- "GEM-X"
-# SHIELD vs TIPTOE
-seqtype_col<- setNames(c("#06A5FF","#00446B","#007756"), c("NextGEM","GEM-X","snPATHOseq"))
-p <- initialSeuratQC(
-  so1, 
-  var_to_compare = "orig.ident",
-  sampleName = "NextGEM vs GEM-X vs snPATHOseq",
-  var_col = seqtype_col,
-  save.loc = "/researchers/nicole.saw/projects/SHIELD/R/"
-)
-
-sampleName = "NextGEM vs GEM-X vs snPATHOseq"
-save.loc = "/researchers/nicole.saw/projects/SHIELD/R/"
-
-a <- p[[1]]/p[[2]]/p[[3]] & scale_color_manual(values = seqtype_col)
-b <- p[[5]]
-pdf(file.path(save.loc, paste0(sampleName,".initialQC.subset.pdf")), width = 10, height = 5)
-# print(ggpubr::ggarrange(plotlist = p[c(1,5,2,3)], ncol = 2, nrow = 2, common.legend = TRUE))
-print((a | b + theme(aspect.ratio = 1)) + plot_layout(widths = c(0.15,0.25)) & theme(legend.position = 'none'))
-dev.off()
-
+# # example usage 2
+# so <- readRDS("/researchers/nicole.saw/projects/SHIELD/R/first_pass_merged/tiptoe_shield.rds")
+# so$orig.ident[so$orig.ident == "TIPTOE"] <-  "NextGEM"
+# so$orig.ident[so$orig.ident == "SHIELD"] <-  "GEM-X"
+# seqtype_col<- setNames(c("#06A5FF","#00446B"), c("NextGEM","GEM-X"))
+# p <- initialSeuratQC(
+#   so, 
+#   var_to_compare = "orig.ident",
+#   sampleName = "NextGEM vs GEM-X",
+#   var_col = seqtype_col,
+#   save.loc = "/researchers/nicole.saw/projects/SHIELD/R/"
+# )
+# 
+# sampleName = "NextGEM vs GEM-X"
+# save.loc = "/researchers/nicole.saw/projects/SHIELD/R/"
+# 
+# a <- p[[1]]/p[[2]]/p[[3]] & scale_color_manual(values = seqtype_col)
+# b <- p[[5]]
+# pdf(file.path(save.loc, paste0(sampleName,".initialQC.subset.pdf")), width = 10, height = 5)
+# # print(ggpubr::ggarrange(plotlist = p[c(1,5,2,3)], ncol = 2, nrow = 2, common.legend = TRUE))
+# print((a | b + theme(aspect.ratio = 1)) + plot_layout(widths = c(0.15,0.25)) & theme(legend.position = 'none'))
+# dev.off()
+# 
+# so1 <- merge(subset(plotCombined, seqType == "snPATHOseq"), so)
+# so1$orig.ident[so1$seqType == "snPATHOseq"] <- "snPATHOseq"
+# so1$orig.ident[so1$orig.ident == "TIPTOE"] <- "NextGEM"
+# so1$orig.ident[so1$orig.ident == "SHIELD"] <- "GEM-X"
+# # SHIELD vs TIPTOE
+# seqtype_col<- setNames(c("#06A5FF","#00446B","#007756"), c("NextGEM","GEM-X","snPATHOseq"))
+# p <- initialSeuratQC(
+#   so1, 
+#   var_to_compare = "orig.ident",
+#   sampleName = "NextGEM vs GEM-X vs snPATHOseq",
+#   var_col = seqtype_col,
+#   save.loc = "/researchers/nicole.saw/projects/SHIELD/R/"
+# )
+# 
+# sampleName = "NextGEM vs GEM-X vs snPATHOseq"
+# save.loc = "/researchers/nicole.saw/projects/SHIELD/R/"
+# 
+# a <- p[[1]]/p[[2]]/p[[3]] & scale_color_manual(values = seqtype_col)
+# b <- p[[5]]
+# pdf(file.path(save.loc, paste0(sampleName,".initialQC.subset.pdf")), width = 10, height = 5)
+# # print(ggpubr::ggarrange(plotlist = p[c(1,5,2,3)], ncol = 2, nrow = 2, common.legend = TRUE))
+# print((a | b + theme(aspect.ratio = 1)) + plot_layout(widths = c(0.15,0.25)) & theme(legend.position = 'none'))
+# dev.off()
+# 

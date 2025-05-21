@@ -1,4 +1,4 @@
-checkRegressGenes <- function(seu.obj, sampleName, pca_npcs = 50, ccgenes, save.loc, regress_genes, ribo_name = "Ribo", label_genes = NULL){        
+checkRegressGenes <- function(seu.obj, sampleName, pca_npcs = 50, ccgenes, save.loc, regress_genes, label_genes = NULL){        
   
   suppressPackageStartupMessages({
     require(Seurat)
@@ -12,16 +12,23 @@ checkRegressGenes <- function(seu.obj, sampleName, pca_npcs = 50, ccgenes, save.
   ifelse(!dir.exists(file.path(save.loc, "plots")),
          dir.create(file.path(save.loc, "plots"), recursive = TRUE), paste0(save.loc," directory exists"))
   
-  seu.obj <- NormalizeData(seu.obj)
+  seu.obj <- NormalizeData(seu.obj, verbose = FALSE)
   seu.obj <- FindVariableFeatures(seu.obj,selection.method = "vst", nfeatures = 2000)
   seu.obj <- ScaleData(seu.obj, verbose = FALSE)
   seu.obj <- RunPCA(seu.obj, npcs = pca_npcs, verbose = FALSE)
   
   # get gene lists
-  g <- setNames(c(ccgenes, regress_genes), c("S","G2M", names(regress_genes)))
-  g <- lapply(g, function(g){
-    g[g %in% rownames(seu.obj)]
-  })
+  if(!is.null(regress_genes)){
+    g <- setNames(c(ccgenes, regress_genes), c("S","G2M", names(regress_genes)))
+    g <- lapply(g, function(g){
+      g[g %in% rownames(seu.obj)]
+    })
+  } else {
+    g <- setNames(ccgenes, c("S","G2M"))
+    g <- lapply(g, function(g){
+      g[g %in% rownames(seu.obj)]
+    })
+  }
   
   # add module scores
   seu.obj <- AddModuleScore_UCell(seu.obj, features = g)
@@ -35,12 +42,40 @@ checkRegressGenes <- function(seu.obj, sampleName, pca_npcs = 50, ccgenes, save.
     scale_colour_gradientn(colours = rev(brewer.pal(n = 11, name = "RdBu")))
   
   # https://github.com/satijalab/seurat/issues/147#issuecomment-360896778
-  # VariableFeaturePlot here shows that some Rp genes are highly variable amongst cells, so ideally we wouldn't filter these genes out in future analyses and only consider regressing them out instead.
+  # VariableFeaturePlot here shows that some Rp genes are highly variable amongst cells, 
+  # so ideally we wouldn't filter these genes out in future analyses and only consider regressing them out instead.
   
-  if(is.null(label_genes)) { 
-    label_genes = unlist(regress_genes)[unlist(regress_genes) %in% rownames(seu.obj)]
+  if (!is.null(regress_genes)) {
+    if (is.list(regress_genes) && !is.null(names(regress_genes))) {
+      # Handle named lists
+      for (feature_name in names(regress_genes)) {
+        seu.obj <- AddModuleScore(
+          object = seu.obj, 
+          features = list(regress_genes[[feature_name]]), 
+          name = paste0(feature_name,".Score"), 
+          assay = "RNA"
+        )
+      }
+    } else {
+      # Handle unnamed lists
+      seu.obj <- AddModuleScore(
+        object = seu.obj, 
+        features = regress_genes, 
+        name = names(regress_genes), 
+        assay = "RNA"
+      )
+    }
+    VariableFeatures(seu.obj) <- setdiff(VariableFeatures(seu.obj), unlist(regress_genes))
+    label_genes <- if (is.null(label_genes)) {
+      unlist(regress_genes)[unlist(regress_genes) %in% rownames(seu.obj)]
+    } else {
+      label_genes
+    }
+  } else {
+    label_genes <- unlist(ccgenes)[unlist(ccgenes) %in% rownames(seu.obj)]
   }
-  
+
+    # plot HVGs
   HVGLabelledPlot <- LabelPoints(plot = VariableFeaturePlot(seu.obj), repel = TRUE, points = label_genes) +
     theme(aspect.ratio = 1)
   
@@ -54,13 +89,6 @@ checkRegressGenes <- function(seu.obj, sampleName, pca_npcs = 50, ccgenes, save.
   print(HVGLabelledPlot)
   dev.off()
   
-  # aim to regress out RP genes, remove RP genes from VariableFeatures(seu.obj)
-  seu.obj <- AddModuleScore(object = seu.obj,
-                            features = g[ribo_name],
-                            name = 'RP.Score',
-                            assay = "RNA")
-  # VariableFeatures(seu.obj) <- setdiff(VariableFeatures(seu.obj), grep(rp_gene_pattern, VariableFeatures(seu.obj), value = TRUE))
-  VariableFeatures(seu.obj) <- setdiff(VariableFeatures(seu.obj), g[ribo_name])
   
   return(seu.obj)
 }

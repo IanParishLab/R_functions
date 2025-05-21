@@ -1,13 +1,13 @@
 # Prepare files
 prep_scRepertoireData <- function(seu.obj, contigs, sampleNames = NULL, 
                                   seu.obj.ident = "PatientID", hash.ident = "sampleSource",
-                                  cloneTypes = c(Single=1, Small=5, Medium=20, Large=50, Larger=100, Hyperexpanded = 1000),
-                                  # cloneTypes = c(Rare = 1e-04, Small = 0.001, Medium = 0.01, Large = 0.1, Hyperexpanded = 1),
-                                  Tcell.type = "T-AB", save.name = "renamed", save.loc = "./scRepertoire"){
+                                  # cloneTypes = c(Single=1, Small=5, Medium=20, Large=50, Larger=100, Hyperexpanded = 1000),
+                                  cloneTypes = c(Rare = 1e-04, Small = 0.001, Medium = 0.01, Large = 0.05, Hyperexpanded = 1),
+                                  Tcell.type = "T-AB", save.name = "renamed", save.loc){
   
-  require(scRepertoire)
-  require(Seurat)
-  require(tidyverse)
+  library(scRepertoire)
+  library(Seurat)
+  library(tidyverse)
   
   # # test parameters
   # seu.obj = scvi
@@ -17,7 +17,7 @@ prep_scRepertoireData <- function(seu.obj, contigs, sampleNames = NULL,
   # hash.ident = "sampleSource"
   # cloneTypes = cloneTypes
   # Tcell.type = "T-AB"
-  # save.name = "CD8_renamed"
+  # save.name = save.name
   # save.loc = save.loc
   # # end test parameters
   
@@ -42,7 +42,7 @@ prep_scRepertoireData <- function(seu.obj, contigs, sampleNames = NULL,
                  " common GEX barcodes in TCR data..."))
   }
   contigs_all <- plyr::rbind.fill(contigs)
-  saveRDS(contigs_all, file.path(save.loc, paste0(save.name, ".renamed.filtered_contig_annotations.rds")))
+  saveRDS(contigs_all, file.path(save.loc, paste0(save.name, ".processed.filtered_contig_annotations.rds")))
   
   # Create HTO contig list
   if(length(seu.obj) > 1){
@@ -66,7 +66,6 @@ prep_scRepertoireData <- function(seu.obj, contigs, sampleNames = NULL,
   # Add TCR expression data to Seurat object with combineTCR & combineExpression
   combined <- combineTCR(hto_contig_list, 
                          samples = names(hto_contig_list)
-                         #cells = Tcell.type
   )
   seu.obj$contigCellBarcode <- Cells(seu.obj)
   new.hto.contig.barcodes <- paste0(seu.obj@meta.data[[hash.ident]],".",
@@ -79,9 +78,12 @@ prep_scRepertoireData <- function(seu.obj, contigs, sampleNames = NULL,
                                         cloneCall = "strict", 
                                         cloneSize = cloneTypes,
                                         group.by = "sample",
-                                        proportion = FALSE#, filterNA = TRUE, addLabel = TRUE
+                                        proportion = TRUE,
+                                        #filterNA = TRUE,
+                                        addLabel = TRUE
   )
-  table(combined_seu.obj$cloneSize)
+  print("`cloneSize`:")
+  table(combined_seu.obj$cloneSize) %>% print
   # range(combined_seu.obj$Frequency[which(combined_seu.obj$cloneType == "Small (0.001 < X <= 0.005) ")])
   saveRDS(combined_seu.obj, file.path(save.loc, paste0(save.name,".combineExpression.",Tcell.type,".rds")))
   

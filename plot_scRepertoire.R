@@ -62,12 +62,11 @@ plot_scRepertoire <- function(so,
   # Visualize clonal frequency onto UMAPs to show clonal expansion:
   Idents(so) <- cluster.ident
   pdf(file.path(save.loc, paste0(save.name,".clonalOverlay.pdf")), width = 10, height = 8)
-  lapply(cloneTypes[-length(cloneTypes)], function(cutoff){
-    clonalOverlay(so,
-                  reduction = reduction.name,
-                  freq.cutpoint = cutoff,
+  lapply(cloneTypes, function(cutoff){
+    clonalOverlay(seu.obj,
+                  reduction = "umap.scvi",
                   bins = 20,
-                  facet = seu.obj.ident) +
+                  facet.by = "PatientID", cut.category = 'cloneSize',cutpoint = cutoff) +
       ggtitle(cutoff) +
       scale_color_manual(values = cluster_col) +
       theme(aspect.ratio = 1) +
@@ -342,7 +341,7 @@ plot_scRepertoire <- function(so,
                   filter.clones = NULL,
                   # filter.identity = c("PBMC", "LN"),
                   cloneCall = "strict") +
-      # scale_colour_manual(values = cluster_col) +
+      scale_colour_manual(values = cluster_col) +
       theme(aspect.ratio = 1) +
       labs(subtitle = unique(seu[[seu.obj.ident]]))
   })
@@ -460,13 +459,13 @@ plot_scRepertoire <- function(so,
   pal = colorRamp2(seq(0,0.4,0.1), c("#000004","#270C4C","#872168","#EC6726","#FCFFA4"))
   
   #All patients
-  p1 <- (clonalOverlap(so, split.by = hash.ident,
+  p1 <- (clonalOverlap(so, group.by = hash.ident,
                        cloneCall = "strict",
                        method = "overlap") +
            theme(axis.text.x = element_text(hjust = 1, angle = 30)) +
            update_geom_defaults("text", list(size = 2)) +
            labs(subtitle = "All patients")) +
-    (clonalOverlap(so, split.by = hash.superset.ident,
+    (clonalOverlap(so, group.by = hash.superset.ident,
                    cloneCall = "strict",
                    method = "overlap") +
        theme(axis.text.x = element_text(hjust = 1, angle = 30)) +
@@ -475,7 +474,7 @@ plot_scRepertoire <- function(so,
   
   # split by patient, sample source
   p <- lapply(split_so, function(seu){
-    a <- clonalOverlap(seu, split.by = hash.ident,
+    a <- clonalOverlap(seu, group.by = hash.ident,
                        cloneCall = "strict",
                        method = "overlap") +
       theme(axis.text.x = element_text(hjust = 1, angle = 30)) +

@@ -7,16 +7,16 @@ run_decontX <- function(
     min.cells = 1,
     rna_density_plot_markers = NULL,
     use_decontPro = TRUE,
-    save.loc = "decontX",
+    save.loc = "1_decontX",
     seed.use = seed.use
 ){
   
   suppressPackageStartupMessages({
-    require(celda)
-    require(decontX)
-    require(SingleCellExperiment)
-    require(Seurat)
-    require(tidyverse)
+    # library(celda)
+    library(decontX)
+    library(SingleCellExperiment)
+    library(Seurat)
+    library(tidyverse)
   })
   
   # make output directory
@@ -27,6 +27,19 @@ run_decontX <- function(
     ifelse(!dir.exists(file.path(save.loc,d)),
            dir.create(file.path(save.loc,d), recursive = TRUE), paste0(d," directory exists"))
   })
+  
+  ############################################################
+  # i=length(capture)
+  # raw = raw.list[[i]]
+  # filt = filt.list[[i]]
+  # sampleName = capture[i]
+  # Read10X = TRUE
+  # min.cells = 1
+  # rna_density_plot_markers = c("CD8A","CD8B")
+  # use_decontPro = TRUE
+  # save.loc = here("CD8","1_decontX")
+  # seed.use = seed.use
+  ############################################################
   
   # read files
   if (Read10X == TRUE){
@@ -66,13 +79,14 @@ run_decontX <- function(
   if(!is.null(raw)){
     sce.raw <- SingleCellExperiment(list(counts = raw.counts))
     print("[MSG] decontX...")
-    sce <- decontX(sce, background = sce.raw)
+    sce <- decontX::decontX(sce, background = sce.raw)
   } else {
     print("[MSG] decontX without raw counts as background...")
-    sce <- decontX(sce)
+    sce <- decontX::decontX(sce)
   }
   
   # save decontaminated RNA counts as SCE
+  print("[MSG] Saving RNA decontX sce ...")
   saveRDS(sce, file.path(save.loc, "int_obj", paste0(sampleName,".RNA_decontX_sce.rds")))
   
   # plot decontX contamination
@@ -104,61 +118,60 @@ run_decontX <- function(
   dev.off()
   
   # decontPro
-  if (isTRUE(use_decontPro)){
-    print(paste0("Prep decontPro..."))
-    if(!is.null(raw)){
-      raw.hto <- raw$`Antibody Capture`[,colnames(sce)]
-      raw.hto <- raw.hto[,which(colSums(raw.hto) > 0)]
-    }
-    filt.hto <- filt$`Antibody Capture`[,colnames(sce)]
-    filt.hto <- filt.hto[,which(colSums(filt.hto) > 0)]
-    
-    hto.obj <- CreateSeuratObject(filt.hto, assay = "HTO")
-    
-    npc = nrow(hto.obj) - 1
-    hto.obj <- NormalizeData(hto.obj, normalization.method = "CLR", margin = 2) %>%
-      ScaleData(assay = "HTO") %>%
-      RunPCA(assay = "HTO", features = rownames(hto.obj), npcs = npc, reduction.name = "pca_hto") %>%
-      FindNeighbors(dims = 1:npc, assay = "HTO", reduction = "pca_hto") %>%
-      FindClusters(resolution = 0.5)
-    
-    hto.obj <- RunUMAP(hto.obj,
-                       dims = 1:npc,
-                       assay = "HTO",
-                       reduction = "pca_hto",
-                       reduction.name = "umap_hto",
-                       seed.use = seed.use,
-                       verbose = FALSE)
-    
-    # decontPro
-    clusters <- as.integer(Idents(hto.obj))
-    counts <- as.matrix(filt.hto)
-    
-    if(!is.null(raw)){
-      print("[MSG] decontPro...")
-      decont.HTO <- decontPro(counts, clusters, ambient_counts = raw.hto)
-    } else {
-      print("[MSG] decontPro without raw HTO counts as background...")
-      decont.HTO <- decontPro(counts, clusters, ambient_counts = NULL)
-    }
-    # save HTO count object
-    saveRDS(decont.HTO, file.path(save.loc, "int_obj", paste0(sampleName,".HTO_decontPro_sce.rds")))
-    
-    # plots
-    p1 <- DimPlot(hto.obj, reduction = "umap_hto", label = TRUE)
-    # before decontaminating cell barcodes 
-    p2 <- plotDensity(counts,
-                      decont.HTO$decontaminated_counts,
-                      rownames(counts))
-    pdf(file.path(save.loc, "plots", paste0(sampleName, ".hto.density.pdf")), height = 6, width = 6)
-    print(p1)
-    print(p2)
-    dev.off()
-  }
-  
-  sce <- sce[,colnames(hto.obj)]
-  
-  # save object
-  print("[MSG] Saving final object for run_decontX...")
-  saveRDS(sce, file.path(save.loc, "int_obj", paste0(sampleName,".run_decontX.sce.rds")))
+  # if (isTRUE(use_decontPro)){
+    # print(paste0("Prep decontPro..."))
+    # if(!is.null(raw)){
+    #   raw.hto <- raw$`Antibody Capture`[,colnames(sce)]
+    #   raw.hto <- raw.hto[,which(colSums(raw.hto) > 0)]
+    # }
+    # filt.hto <- filt$`Antibody Capture`[,colnames(sce)]
+    # filt.hto <- filt.hto[,which(colSums(filt.hto) > 0)]
+    #
+    # hto.obj <- CreateSeuratObject(filt.hto, assay = "HTO")
+    #
+    # npc = nrow(hto.obj) - 1
+    # hto.obj <- NormalizeData(hto.obj, normalization.method = "CLR", margin = 2) %>%
+    #   ScaleData(assay = "HTO") %>%
+    #   RunPCA(assay = "HTO", features = rownames(hto.obj), npcs = npc, reduction.name = "pca_hto") %>%
+    #   FindNeighbors(dims = 1:npc, assay = "HTO", reduction = "pca_hto") %>%
+    #   FindClusters(resolution = 0.5)
+    #
+    # hto.obj <- RunUMAP(hto.obj,
+    #                    dims = 1:npc,
+    #                    assay = "HTO",
+    #                    reduction = "pca_hto",
+    #                    reduction.name = "umap_hto",
+    #                    seed.use = seed.use,
+    #                    verbose = FALSE)
+    #
+    # # decontPro
+    # clusters <- as.integer(Idents(hto.obj))
+    # counts <- as.matrix(filt.hto)
+    #
+    # if(!is.null(raw)){
+    #   print("[MSG] decontPro...")
+    #   decont.HTO <- decontPro(counts, clusters, ambient_counts = raw.hto)
+    # } else {
+    #   print("[MSG] decontPro without raw HTO counts as background...")
+    #   decont.HTO <- decontPro(counts, clusters, ambient_counts = NULL)
+    # }
+    # # save HTO count object
+    # print("[MSG] Saving decontPro HTO sce ...")
+    # saveRDS(decont.HTO, file.path(save.loc, "int_obj", paste0(sampleName,".HTO_decontPro_sce.rds")))
+    #
+    # # plots
+    # p1 <- DimPlot(hto.obj, reduction = "umap_hto", label = TRUE)
+    # # before decontaminating cell barcodes
+    # p2 <- plotDensity(counts,
+    #                   decont.HTO$decontaminated_counts,
+    #                   rownames(counts))
+    # pdf(file.path(save.loc, "plots", paste0(sampleName, ".hto.density.pdf")), height = 6, width = 6)
+    # print(p1)
+    # print(p2)
+    # dev.off()
+    #
+    # # subset for `hto.obj` cells too if decontpro is used
+    # sce <- sce[,colnames(hto.obj)]
+  # }
+
 }

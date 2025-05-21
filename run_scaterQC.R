@@ -6,8 +6,6 @@ run_scaterQC <- function(
     save.loc = "QC",
     plot.width = 6,
     plot.height = 4,
-    seqType = "10X 5'scRNAseq",
-    dropletType = "NextGEM",
     min.cells = 1,
     clusters, samples = NULL,
     dry_run = TRUE
@@ -145,8 +143,6 @@ run_scaterQC <- function(
                                 meta.data = as.data.frame(colData(sce)),
                                 min.cells = min.cells,
                                 project = sampleName)
-  seu.obj[["seqType"]] <- seqType
-  seu.obj[["dropletType"]] <- dropletType
   
   # Save preprocessed objects
   print("Saving preprocessed Seurat object...")

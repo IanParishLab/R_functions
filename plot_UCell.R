@@ -1,6 +1,6 @@
 plot_UCell <- function(seu.obj, gn, reduction.name, cluster.ident, label = TRUE, 
                        save.loc = "./plots", plot.name, plot.width = 10, plot.height = 6,
-                       vln = FALSE){
+                       vln = FALSE, ncol = 4, raster = FALSE, print = FALSE){
   require(Seurat)
   require(UCell)
   require(patchwork)
@@ -24,10 +24,10 @@ plot_UCell <- function(seu.obj, gn, reduction.name, cluster.ident, label = TRUE,
   
   if(isTRUE(label)){
     fp <- FeaturePlot(seu.obj1, reduction = reduction.name, order = TRUE, repel = TRUE, label = TRUE,
-                      features = c(signature.names, paste0(signature.names,"_kNN")), ncol = 4)
+                      features = c(signature.names, paste0(signature.names,"_kNN")), ncol = ncol, raster = raster)
   } else {
     fp <- FeaturePlot(seu.obj1, reduction = reduction.name, order = TRUE, repel = TRUE,
-                      features = c(signature.names, paste0(signature.names,"_kNN")), ncol = 4)
+                      features = c(signature.names, paste0(signature.names,"_kNN")), ncol = ncol, raster = raster)
   }
   
   fp <- fp &
@@ -39,7 +39,7 @@ plot_UCell <- function(seu.obj, gn, reduction.name, cluster.ident, label = TRUE,
   if(isTRUE(vln)){
     vln_p <- VlnPlot(seu.obj1, group.by = cluster.ident,
                      features = c(signature.names, paste0(signature.names,"_kNN")), 
-                     cols = cluster_col, ncol = 2, pt.size = 0) &
+                     cols = cluster_col, ncol = 2, pt.size = 0, raster = raster) &
       geom_boxplot(width = 0.1, color = "black", alpha = 0.3) &
       theme(text = element_text(size = 7), 
             axis.text = element_text(size = 7),
@@ -47,6 +47,10 @@ plot_UCell <- function(seu.obj, gn, reduction.name, cluster.ident, label = TRUE,
             axis.title.y = element_text(size = 7))
   }
   
+  if(isTRUE(print)){
+    print(fp)
+  }
+    
   # save plot
   pdf(file.path(save.loc, paste0(plot.name, ".plotUCell.pdf")), width = plot.width, height = plot.height)
   print(fp)

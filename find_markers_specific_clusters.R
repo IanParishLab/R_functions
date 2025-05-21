@@ -6,7 +6,7 @@ find_markers_specific_clusters <- function(SeuratObjectIN,
                                            max.cells.per.ident = NULL, 
                                            test.use = "LR",
                                            latent.vars = paste0("nCount_",DefaultSeuratAssay),
-                                           saveRDSPath="./full.markers/",
+                                           save.loc="./full.markers/",
                                            annotate_peaks = NULL,
                                            annotations = NULL) {
   
@@ -23,7 +23,7 @@ find_markers_specific_clusters <- function(SeuratObjectIN,
   # idents.1 = "1"
   # idents.2 = "4"
   # test.use = "LR"
-  # saveRDSPath="/researchers/nicole.saw/projects/Sinead_Reading/R/full.markers/"
+  # save.loc="/researchers/nicole.saw/projects/Sinead_Reading/R/full.markers/"
   # annotate_peaks = TRUE
   # annotations = readRDS("/researchers/nicole.saw/projects/Sinead_Reading/R/EnsDb.Mmusculus.v79_annotations.rds")
   ################ tmp ################ 
@@ -35,8 +35,8 @@ find_markers_specific_clusters <- function(SeuratObjectIN,
   # end setup #
   
   # check if saveDir exists
-  print("[MSG] Checking saveRDSPath, the output file path...")
-  ifelse(!dir.exists(file.path(saveRDSPath)), dir.create(file.path(saveRDSPath)), FALSE)
+  print("[MSG] Checking save.loc, the output file path...")
+  ifelse(!dir.exists(file.path(save.loc)), dir.create(file.path(save.loc)), FALSE)
   
   # read seurat object
   print(paste0("[MSG] reading in seurat object from ", SeuratObjectIN," ..."))
@@ -79,11 +79,11 @@ find_markers_specific_clusters <- function(SeuratObjectIN,
     da_cr <- full_join(FindMarkers.so, dacr_ann, by = "peaks") %>% distinct()
     
     print(paste0("[MSG] saving FindMarkers. results in ","FindMarkers.",saveRDSOutputName,".annotated_dacr.rds"))
-    saveRDS(da_cr, paste0(saveRDSPath,"FindMarkers.",saveRDSOutputName,".",idents.1,"_",paste0(idents.2, collapse = "_"),".annotated_dacr.rds"))
+    saveRDS(da_cr, paste0(save.loc,"FindMarkers.",saveRDSOutputName,".",idents.1,"_",paste0(idents.2, collapse = "_"),".annotated_dacr.rds"))
   } else {
     
     print(paste0("[MSG] saving FindMarkers results in ",saveRDSOutputName,"..."))
-    saveRDS(FindMarkers.so ,paste0(saveRDSPath,"FindMarkers.",saveRDSOutputName,".",idents.1,"_",paste0(idents.2, collapse = "_"),".rds"))
+    saveRDS(FindMarkers.so ,paste0(save.loc,"FindMarkers.",saveRDSOutputName,".",idents.1,"_",paste0(idents.2, collapse = "_"),".rds"))
     
   }
 }

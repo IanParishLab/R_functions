@@ -1,11 +1,11 @@
-run_scGate <- function(seu.obj, models.list, bk.list, min.cells = 1, seed.use, 
+run_scGate <- function(seu.obj, models.list, bk.list, min.cells, seed.use, 
                        gsub_pattern = paste0(names(models.list),"_", collapse = "|"), 
-                       name, save.loc, save.name, gate_cell_col, gate_model_col){
+                       name, save.loc, save.name, gate_cell_col = NULL, gate_model_col = NULL){
   
   suppressPackageStartupMessages({
-  library(scGate)
-  library(RColorBrewer)
-  library(ggpubr)
+    library(scGate)
+    library(RColorBrewer)
+    library(ggpubr)
   })
   
   # make output directory
@@ -65,7 +65,7 @@ run_scGate <- function(seu.obj, models.list, bk.list, min.cells = 1, seed.use,
   print("[MSG] Save scGate cell labels...")
   predicted_scGate_labels <- seu.obj@meta.data[grep(paste0(name, collapse="|"), colnames(seu.obj@meta.data), value = TRUE)] 
   saveRDS(predicted_scGate_labels, file.path(save.loc, "int_obj", paste0(save.name,".scGate_models.list.result.rds")))
-
+  
   # make plots
   print("[MSG] Make & save plots...")
   capture <- unique(seu.obj$orig.ident)  
@@ -77,7 +77,7 @@ run_scGate <- function(seu.obj, models.list, bk.list, min.cells = 1, seed.use,
     gsub("not",NA,.) %>%
     unique %>% 
     sort
-
+  
   unique_gate_model <- table(seu.obj[[model_name_2]]) %>% 
     unlist %>% 
     names %>% 
@@ -85,7 +85,7 @@ run_scGate <- function(seu.obj, models.list, bk.list, min.cells = 1, seed.use,
     gsub("not",NA,.) %>%
     unique %>% 
     sort
-
+  
   # set colours
   gg_color_hue <- function(n) {
     hues = seq(15, 375, length = n + 1)
@@ -116,7 +116,7 @@ run_scGate <- function(seu.obj, models.list, bk.list, min.cells = 1, seed.use,
   print(plot)
   print(lgd1 | lgd2)
   dev.off()
-
+  
   
   return(seu.obj)
 }

@@ -2,7 +2,7 @@
 # add features argument to customize features to include/exclude
 # include scgate blacklist
 find_clusters_to_remove <- function(so, capture, assay, reduction, reduction.name, res=NULL, vars.to.regress,
-remove_clusters=NULL, npcs, prefix, seed.use, save.loc = "./cluster_qc", resolutions = seq(0.5,2,by = 0.1),
+remove_clusters=NULL, npcs, prefix, seed.use, save.loc, resolutions = seq(0.5,2,by = 0.1),
 features, bk.list){
   
   require(Seurat)
@@ -35,15 +35,15 @@ features, bk.list){
       }
     so <- ScaleData(object = so, vars.to.regress = vars.to.regress)
   }
-  
+
   if(assay == "integrated"){
     so <- ScaleData(object = so, vars.to.regress = vars.to.regress)
   }
-  
+
   if(assay == "SCT"){
     SCTransform(so, vst.flavor = "v2", vars.to.regress = vars.to.regress, verbose = FALSE, seed.use = seed.use)
   }
-  
+
   so <- RunPCA(so, npcs = 50, verbose = FALSE)
   so <- RunUMAP(so, dims = 1:npcs, reduction = reduction, reduction.name = reduction.name, verbose = FALSE, seed.use = seed.use)
   print(paste0("[MSG] reduction = ",reduction))
@@ -52,7 +52,7 @@ features, bk.list){
   
   for (j in 1:length(resolutions)){
     so <- FindNeighbors(so, graph.name = paste0(assay,"_snn"), dims = 1:npcs, verbose = FALSE)
-    so <- FindClusters(object = so, graph.name = paste0(assay,"_snn"), resolution = resolutions[j])
+    so <- FindClusters(object = so, graph.name = paste0(assay,"_snn"), resolution = resolutions[j],verbose = FALSE)
   }
   
   pdf(file.path(save.loc, "plots", paste0(prefix ,"_", capture,"_",assay,"_snn_res_VlnPlot.pdf")), height = 9, width = 12)

@@ -1,0 +1,59 @@
+# scGate
+```{r}
+save.loc = here("CD8", "6_scGate")
+# make output directory
+lapply(c("int_obj","plots"), function(d){
+  ifelse(!dir.exists(file.path(save.loc, d)),
+         dir.create(file.path(save.loc, d), recursive = TRUE), paste0(save.loc," directory exists"))
+})
+    
+bk.list = c(genes.blacklist.default$Hs$Ribo, 
+            genes.blacklist.default$Hs$TCR)
+
+models <- scGate::get_scGateDB()
+models.list <- list(CD8_TIL_MAIT = models$human$CD8_TIL$CD8_MAIT,
+                    HiTME_gdT = models$human$HiTME$gdT,
+                    PBMC_gdT = models$human$PBMC$gdT,
+                    HiTME_Bcell = models$human$HiTME$Bcell,
+                    TME_HiRes_Bcell = models$human$TME_HiRes$Bcell,
+                    PBMC_Bcell = models$human$PBMC$Bcell,
+                    PBMC_Monocyte = models$human$PBMC$Monocyte)
+
+so <- lapply(so, function(so) {
+  run_scGate(so, 
+             models.list = models.list, 
+             min.cells = 3, 
+             bk.list = bk.list, 
+             name = 'singleSample', save.name = so@project.name,
+             gsub_pattern = paste0(names(models.list),"_", collapse = "|"), 
+             save.loc = save.loc, seed.use = seed.use,
+             gate_cell_col = NULL, gate_model_col = NULL)
+})
+
+```
+
+# save clustered seurat objects
+```{r}
+save.loc = here("CD8", "5_cluster_qc_1")
+
+# make output directory
+ifelse(!dir.exists(file.path(save.loc, "int_obj")),
+       dir.create(file.path(save.loc, "int_obj"), recursive = TRUE), paste0(save.loc," directory exists"))
+
+for(i in 1:length(capture)){
+  print(paste0(so[[i]]@project.name,".clustered.rds"))
+  saveRDS(so[[i]], file.path(save.loc, "int_obj", paste0(so[[i]]@project.name,".clustered.rds")))
+}
+```
+
+# check numbers after scGate filtering
+```{r}
+cell_counts_df <- readRDS(here("CD8","4_saving_checkpoint","cell_counts_df.rds"))
+for(i in 1:length(capture)){
+  # print(table(gated_obj_list[[i]]$scGate_multi, useNA='ifany'))
+  so[[i]] <- subset(so[[i]], contaminating.singleSample == "not")
+  cell_counts_df[[capture[i]]]["Remove contaminating cells"] <- ncol(so[[i]])
+}
+saveRDS(cell_counts_df, here("CD8","6_scGate","cell_counts_df.rds"))
+```
+

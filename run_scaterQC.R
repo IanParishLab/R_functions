@@ -1,156 +1,125 @@
 run_scaterQC <- function(
     sce, 
     mito_genes = scGate::genes.blacklist.default$Mm$Mito,
-    sampleName,
-    nmads = c(low = 2,high = 3),
+    sample_name,
+    nmads = c(low = 2, high = 3),
     save.loc = "QC",
     plot.width = 6,
     plot.height = 4,
     min.cells = 1,
-    clusters, samples = NULL,
+    clusters = NULL, 
+    samples = NULL,
     dry_run = TRUE
-){
-  
+) {
   suppressPackageStartupMessages({
-    require(celda)
-    require(scater)
-    require(scuttle)
-    require(cowplot)
-    require(SingleCellExperiment)
-    require(Seurat)
-    require(tidyverse)
-    require(scDblFinder)
+    library(celda)
+    library(scater)
+    library(scuttle)
+    library(cowplot)
+    library(SingleCellExperiment)
+    library(Seurat)
+    library(tidyverse)
+    library(scDblFinder)
   })
   
-  # make output directory
-  ifelse(!dir.exists(file.path(save.loc)),
-         dir.create(file.path(save.loc), recursive = TRUE), paste0(save.loc," directory exists"))
+  # Make output directory
+  dir.create(file.path(save.loc, "metrics"), showWarnings = FALSE, recursive = TRUE)
+  dir.create(file.path(save.loc, "int_obj"), showWarnings = FALSE, recursive = TRUE)
+  dir.create(file.path(save.loc, "plots"), showWarnings = FALSE, recursive = TRUE)
   
-  lapply(c("metrics","int_obj","plots"),function(d){
-    ifelse(!dir.exists(file.path(save.loc,d)),
-           dir.create(file.path(save.loc,d), recursive = TRUE), paste0(d," directory exists"))
-  })
-  # SingleCellExperiment processing
-  print(paste0("[MSG] processing SingleCellExperiment object..."))
-  # create assay
+  # Backup raw counts
   assay(sce, "raw_counts") <- counts(sce)
   counts(sce) <- decontXcounts(sce)
   
-  print(paste0("[MSG] addPerCellQCMetrics: `sum`, `detected`, `zero_pct`, `subsets_mito_percent`..."))
-  # add is_mito
+  # Add per-cell QC metrics
+  message("[MSG] Adding QC metrics...")
   is_mito <- rownames(sce) %in% mito_genes
   sce <- addPerCellQCMetrics(sce, subsets = list(mito = is_mito))
   
-  sce$low_lib_size <- isOutlier(sce$sum, nmads = nmads['low'], type = "lower")
-  sce$high_lib_size <- isOutlier(sce$sum, nmads = nmads['high'], type = "higher")
-  sce$lib_size <- (sce$low_lib_size|sce$high_lib_size) == TRUE
-  sce$low_n_features <- isOutlier(sce$detected, nmads = nmads['low'], type = "lower")
-  sce$high_n_features <- isOutlier(sce$detected, nmads = nmads['high'], type = "higher")
-  sce$n_features <- (sce$low_n_features|sce$high_n_features) == TRUE
-  sce$high_subsets_mito_percent <- isOutlier(sce$subsets_mito_percent, nmads = nmads['high'], type = "higher")
-  sce$discard <- (sce$lib_size|sce$n_features|sce$high_subsets_mito_percent) == TRUE
-  
-  # add percent.mito column for streamlined pipeline use
+  # Flag outliers
+  sce$low_lib_size <- isOutlier(sce$sum, nmads = nmads["low"], type = "lower")
+  sce$high_lib_size <- isOutlier(sce$sum, nmads = nmads["high"], type = "higher")
+  sce$lib_size <- sce$low_lib_size | sce$high_lib_size
+  sce$low_n_features <- isOutlier(sce$detected, nmads = nmads["low"], type = "lower")
+  sce$high_n_features <- isOutlier(sce$detected, nmads = nmads["high"], type = "higher")
+  sce$n_features <- sce$low_n_features | sce$high_n_features
+  sce$high_subsets_mito_percent <- isOutlier(sce$subsets_mito_percent, nmads = nmads["high"], type = "higher")
+  sce$discard <- sce$lib_size | sce$n_features | sce$high_subsets_mito_percent
   sce$percent.mito <- sce$subsets_mito_percent
+  sce$zero_pct <- colMeans(counts(sce) == 0) * 100
+  sce$sample <- sample_name
   
-  # calculate %cells with zero counts for each gene.
-  sce$zero_pct <- colMeans(counts(sce) == 0)*100
+  # Plot pre-filter QC
+  message("[MSG] Generating QC plots...")
+  qc_theme <- theme(legend.position = "none", axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0))
   
-  # add sample name
-  sce$sample <- sampleName
-  
-  # plotColData
-  print(paste0("[MSG] plotColData..."))
-  # set theme
-  theme = theme(legend.position = "none",
-                axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0))
-  
-  #make plots
   p1_prefilter <- plot_grid(
     plotColData(sce, y = "sum", x = "sample", colour_by = "lib_size") +
-      scale_y_log10() +
-      annotation_logticks(sides = "l", short = unit(0.03, "cm"), mid = unit(0.06, "cm"), long = unit(0.09, "cm")) + theme,
-    plotColData(sce, y = "detected", x = "sample", colour_by = "n_features") + theme,
-    plotColData(sce, y = "subsets_mito_percent", x = "sample", colour_by = "high_subsets_mito_percent") + theme,
-    plotColData(sce, y = "zero_pct", x = "sample", colour_by = "sample") + theme,
-    ncol = 4,
-    align = "hv"
+      scale_y_log10() + annotation_logticks(sides = "l") + qc_theme,
+    plotColData(sce, y = "detected", x = "sample", colour_by = "n_features") + qc_theme,
+    plotColData(sce, y = "subsets_mito_percent", x = "sample", colour_by = "high_subsets_mito_percent") + qc_theme,
+    plotColData(sce, y = "zero_pct", x = "sample", colour_by = "sample") + qc_theme,
+    ncol = 4
   ) + labs(title = "Pre-filter")
   
-  # plot discard cells
   p2_plotdiscard <- plot_grid(
-    plotColData(sce, x="sum", y="subsets_mito_percent", colour_by="discard"),
-    plotColData(sce, x="sum", y="detected", colour_by="discard"),
-    ncol=2
+    plotColData(sce, x = "sum", y = "subsets_mito_percent", colour_by = "discard"),
+    plotColData(sce, x = "sum", y = "detected", colour_by = "discard"),
+    ncol = 2
   )
   
-  p3_plotHighestExprs <- plotHighestExprs(sce, 
-                                          exprs_values = "counts", 
-                                          feature_names_to_plot = NULL, # rownames(sce) is default
-                                          colour_cells_by="detected") + theme
+  p3_plotHighestExprs <- plotHighestExprs(sce, exprs_values = "counts", colour_cells_by = "detected") + qc_theme
   
-  # filter discard cells from sce
-  print(paste0("[MSG] Filter `mito_genes` & `discard` cells..."))
-  # sce <- sce[!rowData(sce)$discard,!colData(sce)$discard]
-  
-  # back up sce
+  # Backup before filtering
   sce_dry_run <- sce
   
-  # filter mito genes, discard low quality cells
-  sce <- sce[!is_mito, !colData(sce)$discard]
+  # Filter cells and genes
+  message("[MSG] Filtering mito genes and discarded cells...")
+  sce <- sce[!is_mito, !sce$discard]
   
-  # # detect doublets
-  print(paste0("[MSG] Detect scDblFinder doublets..."))
-  sce <- logNormCounts(sce) %>%
+  # Detect doublets
+  message("[MSG] Running scDblFinder...")
+  sce <- sce %>%
+    logNormCounts() %>%
     runPCA() %>%
     runUMAP()
   sce <- scDblFinder(sce, clusters = clusters, samples = samples)
   
   p4_postfilter <- plot_grid(
     plotColData(sce, y = "sum", x = "sample", colour_by = "scDblFinder.class", shape_by = "scDblFinder.class") +
-      scale_y_log10() +
-      annotation_logticks(sides = "l", short = unit(0.03, "cm"), mid = unit(0.06, "cm"), long = unit(0.09, "cm")) + theme,
-    plotColData(sce, y = "detected", x = "sample", colour_by = "scDblFinder.class", shape_by = "scDblFinder.class") + theme,
-    plotColData(sce, y = "subsets_mito_percent", x = "sample", colour_by = "scDblFinder.class", shape_by = "scDblFinder.class") + theme,
-    plotColData(sce, y = "zero_pct", x = "sample", colour_by = "scDblFinder.class", shape_by = "scDblFinder.class") + theme,
-    ncol = 4, 
-    align = "hv"
+      scale_y_log10() + annotation_logticks(sides = "l") + qc_theme,
+    plotColData(sce, y = "detected", x = "sample", colour_by = "scDblFinder.class", shape_by = "scDblFinder.class") + qc_theme,
+    plotColData(sce, y = "subsets_mito_percent", x = "sample", colour_by = "scDblFinder.class", shape_by = "scDblFinder.class") + qc_theme,
+    plotColData(sce, y = "zero_pct", x = "sample", colour_by = "scDblFinder.class", shape_by = "scDblFinder.class") + qc_theme,
+    ncol = 4
   ) + labs(title = "Post-filter")
   
   p5_scDblFinder <- plot_grid(
-    plotColData(sce, y = "scDblFinder.score", x = "sample", colour_by = "scDblFinder.class", shape_by = "scDblFinder.class") + theme,
+    plotColData(sce, y = "scDblFinder.score", x = "sample", colour_by = "scDblFinder.class", shape_by = "scDblFinder.class") + qc_theme,
     plotUMAP(sce, colour_by = "scDblFinder.class"),
-    ncol = 2, 
-    align = "hv"
+    ncol = 2
   ) + labs(title = "scDblFinder")
   
-  # save plots
-  print(paste0("[MSG] Save plots..."))
-  pdf(file.path(save.loc, "plots", paste0("addPerCellQCMetrics.scDblFinder.",sampleName,".pdf")), width = plot.width, height = plot.height)
-  p1_prefilter %>% print
-  p2_plotdiscard %>% print
-  p3_plotHighestExprs %>% print
-  p4_postfilter %>% print
-  p5_scDblFinder %>% print
+  # Save plots
+  message("[MSG] Saving plots...")
+  pdf(file.path(save.loc, "plots", paste0("addPerCellQCMetrics.scDblFinder.", sample_name, ".pdf")), 
+      width = plot.width, height = plot.height)
+  print(p1_prefilter)
+  print(p2_plotdiscard)
+  print(p3_plotHighestExprs)
+  print(p4_postfilter)
+  print(p5_scDblFinder)
   dev.off()
   
-  # # save preprocessed sce
-  # print(paste0("[MSG] Save preprocessed sce..."))
-  # saveRDS(sce,  file.path(save.loc, "int_obj", paste0("preprocessed.sce.",sampleName,".rds")))
-  
-  print("[MSG] Create Seurat Object... ")
+  # Convert to Seurat and save
+  message("[MSG] Converting to Seurat object...")
   seu.obj <- CreateSeuratObject(counts(sce),
                                 meta.data = as.data.frame(colData(sce)),
                                 min.cells = min.cells,
-                                project = sampleName)
+                                project = sample_name)
   
-  # Save preprocessed objects
-  print("Saving preprocessed Seurat object...")
-  saveRDS(seu.obj,  file.path(save.loc, "int_obj", paste0("preprocessed.seu.obj.",sampleName,".rds")))
+  saveRDS(seu.obj, file.path(save.loc, "int_obj", paste0(seu.obj@project.name, ".preprocessed.seu.obj.rds")))
   
-  if(isTRUE(dry_run)){
-    return(sce_dry_run)
-  } else {
-    return(sce)
-  }
+  # Return object
+  return(if (dry_run) sce_dry_run else sce)
 }

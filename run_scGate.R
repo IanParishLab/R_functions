@@ -9,10 +9,8 @@ run_scGate <- function(seu.obj, models.list, bk.list, min.cells, seed.use,
   })
   
   # make output directory
-  lapply(c("int_obj","plots"), function(d){
-    ifelse(!dir.exists(file.path(save.loc, d)),
-           dir.create(file.path(save.loc, d), recursive = TRUE), paste0(save.loc," directory exists"))
-  })
+   dir.create(file.path(save.loc, "int_obj"), showWarnings = FALSE, recursive = TRUE)
+  dir.create(file.path(save.loc, "plots"), showWarnings = FALSE, recursive = TRUE)
   
   # use scGate
   print("[MSG] run scGate...")
@@ -29,7 +27,7 @@ run_scGate <- function(seu.obj, models.list, bk.list, min.cells, seed.use,
   }
   
   #fix metadata
-  print("[MSG] Fix metadata...")
+  message("[MSG] Fix metadata...")
   tmp <- seu.obj@meta.data[colnames(seu.obj@meta.data) %in% names(models.list)]
   for(i in 1:(length(colnames(tmp)))){
     tmp[,i][tmp[,i] == "Target"] <- colnames(tmp)[i]
@@ -50,7 +48,7 @@ run_scGate <- function(seu.obj, models.list, bk.list, min.cells, seed.use,
   tmp$scGate_model_def[which(nchar(tmp$scGate_model_def) == 0)] <- "not"
   
   # add contaminating_cell to seu.obj
-  print("[MSG] Add `contaminating_cell` to seu.obj...")
+  message("[MSG] Add `contaminating_cell` to seu.obj...")
   con_name_1 <- paste0('contaminating.', name)
   model_name_2 <- paste0('scGate_model_def.', name)
   if(all(rownames(tmp) == colnames(seu.obj))){
@@ -62,12 +60,12 @@ run_scGate <- function(seu.obj, models.list, bk.list, min.cells, seed.use,
   seu.obj@meta.data[colnames(seu.obj@meta.data) %in% names(models.list)] <- NULL
   
   # save only the scGate labels
-  print("[MSG] Save scGate cell labels...")
+  message("[MSG] Save scGate cell labels...")
   predicted_scGate_labels <- seu.obj@meta.data[grep(paste0(name, collapse="|"), colnames(seu.obj@meta.data), value = TRUE)] 
   saveRDS(predicted_scGate_labels, file.path(save.loc, "int_obj", paste0(save.name,".scGate_models.list.result.rds")))
   
   # make plots
-  print("[MSG] Make & save plots...")
+  message("[MSG] Make & save plots...")
   capture <- unique(seu.obj$orig.ident)  
   
   unique_gate_cell_type <- table(seu.obj[[con_name_1]]) %>% 

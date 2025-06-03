@@ -1,6 +1,6 @@
 plot_HTODemux <- function(seu.obj, 
-                          sampleName, 
-                          save.loc, 
+                          sample_name, 
+                          save.loc = "plots", 
                           HTO_AssayName = "HTO", 
                           RNA_AssayName = "RNA", 
                           hash_class_column = "HTO_classification.global", 
@@ -15,9 +15,9 @@ plot_HTODemux <- function(seu.obj,
   })
   
   # make output directory
-  ifelse(!dir.exists(file.path(save.loc,"plots")),
-         dir.create(file.path(save.loc,"plots"), recursive = TRUE), paste0(save.loc," directory exists"))
-  
+  dir.create(file.path(save.loc, "plots"), showWarnings = FALSE, recursive = TRUE)
+  dir.create(file.path(save.loc, "int_obj"), showWarnings = FALSE, recursive = TRUE)
+
   # print hash class  
   print(paste0("[MSG] Checking hash classification..."))
   if(isFALSE(all(seu.obj[[hash_class_column]] == "Singlet"))){
@@ -75,7 +75,7 @@ plot_HTODemux <- function(seu.obj,
           axis.text = element_text(size = 7))
   
   # save plots
-  pdf(file.path(save.loc, "plots", paste0(sampleName,".pdf")), width = plot.width, height = plot.height)
+  pdf(file.path(save.loc, "plots", paste0(sample_name,".pdf")), width = plot.width, height = plot.height)
   distr_plot %>% print
   ridge_plot %>% print
   ft_scatter %>% print

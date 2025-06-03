@@ -1,5 +1,5 @@
 # Prepare files
-prep_scRepertoireData <- function(seu.obj, contigs, sampleNames = NULL, 
+prep_scRepertoireData <- function(seu.obj, contigs, sample_names = NULL, 
                                   seu.obj.ident = "PatientID", hash.ident = "sampleSource",
                                   # cloneTypes = c(Single=1, Small=5, Medium=20, Large=50, Larger=100, Hyperexpanded = 1000),
                                   cloneTypes = c(Rare = 1e-04, Small = 0.001, Medium = 0.01, Large = 0.05, Hyperexpanded = 1),
@@ -12,7 +12,7 @@ prep_scRepertoireData <- function(seu.obj, contigs, sampleNames = NULL,
   # # test parameters
   # seu.obj = scvi
   # contig.dir = contig.dir
-  # sampleNames = capture
+  # sample_names = capture
   # seu.obj.ident = "PatientID"
   # hash.ident = "sampleSource"
   # cloneTypes = cloneTypes
@@ -29,7 +29,7 @@ prep_scRepertoireData <- function(seu.obj, contigs, sampleNames = NULL,
   seu.obj <- SplitObject(seu.obj, split.by = seu.obj.ident)
   
   for(i in 1:length(seu.obj)){
-    seu.obj[[i]]@project.name <- sampleNames[i]
+    seu.obj[[i]]@project.name <- sample_names[i]
     
     # check if contig and Seurat data is the same
     if(isFALSE(names(contigs)[i] == seu.obj[[i]]@project.name)){

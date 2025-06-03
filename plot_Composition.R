@@ -1,99 +1,73 @@
-plot_Composition <- function(seu.obj, ident = "PatientID", res  = "seuratClusters", 
+plot_Composition <- function(seu.obj, ident = "PatientID", res = "seuratClusters", 
                              hash.ident = "sampleSource", other.hash.ident = "sampleSourceSuperset",
-                             save.loc = "./plots", plot.name,
-                             cluster_col = cluster_col, HTO_col = HTO_col,
+                             save.loc = "plots", plot.name = "test",
+                             cluster_col, HTO_col,
                              plot.width = 8, plot.height = 8, ncol = 3, nrow = 2,
-                             print = FALSE){
+                             print = FALSE) {
   
-  require(dittoSeq)
-  require(Seurat)
-  require(tidyverse)
+  suppressPackageStartupMessages({
+    require(dittoSeq)
+    require(Seurat)
+    require(tidyverse)
+    require(patchwork)
+  })
   
   # make output directory
-  ifelse(!dir.exists(file.path(save.loc)),
-         dir.create(file.path(save.loc), recursive = TRUE), paste0(save.loc," directory exists"))
+  dir.create(file.path(save.loc, "plots"), showWarnings = FALSE, recursive = TRUE)
   
-  # set theme
-  theme <- theme(text = element_text(size = 7), axis.text.x = element_text(angle = 90, size = 7, hjust = 1))
-  
-  a <- dittoBarPlot(seu.obj, var = res, group.by = hash.ident, xlab = "Sample source", 
-                    retain.factor.levels = TRUE, color.panel = cluster_col) + 
-    ggtitle("Cell cluster proportions per sample type") +
-    theme + 
-    scale_x_discrete(limits= levels(seu.obj@meta.data[[hash.ident]])) + 
-    guides(color = guide_legend(ncol = 2)) +
-    NoLegend()
-  b <- dittoBarPlot(seu.obj, group.by = res, var = hash.ident, xlab = "Cluster", 
-                    retain.factor.levels = TRUE, color.panel = HTO_col) + 
-    ggtitle("Sample type proportions per cell cluster") + 
-    theme + 
-    guides(color = guide_legend(ncol = 2)) +
-    NoLegend()
-  
-  a <- a + dittoBarPlot(seu.obj, var = res, group.by = hash.ident, split.by = ident, xlab = "Sample source", 
-                        retain.factor.levels = TRUE, color.panel = cluster_col, 
-                        split.nrow = nrow,split.ncol = ncol) + 
-    ggtitle("Split by patient") + 
-    theme +
-    guides(color = guide_legend(ncol = 2)) +
-    scale_x_discrete(limits= levels(seu.obj@meta.data[[hash.ident]]))
-  
-  b <- b + dittoBarPlot(seu.obj, var = hash.ident, group.by = res, split.by = ident, xlab = "Cluster", 
-                        retain.factor.levels = TRUE, color.panel = HTO_col, 
-                        split.nrow = nrow,split.ncol = ncol) + 
-    ggtitle("Split by patient") + 
-    guides(color = guide_legend(ncol = 2)) +
-    theme
-  
-  cluster_composition <- a/b
-  
-  # superset
-  if(!is.null(other.hash.ident)){
-    a <- dittoBarPlot(seu.obj, var = res, group.by = other.hash.ident, xlab = "Sample source",
-                      retain.factor.levels = TRUE, color.panel = cluster_col) + 
-      ggtitle("Cell cluster proportions per sample type") + 
-      theme + 
-      guides(color = guide_legend(ncol = 2)) +
-      scale_x_discrete(limits= levels(seu.obj@meta.data[[other.hash.ident]])) + 
-      NoLegend()
-    b <- dittoBarPlot(seu.obj, group.by = res, var = other.hash.ident, xlab = "Cluster", 
-                      retain.factor.levels = TRUE, color.panel = HTO_col) + 
-      ggtitle("Sample type proportions per cell cluster") + 
-      theme + 
-      guides(color = guide_legend(ncol = 2)) +
-      NoLegend()
-    
-    a <- a + dittoBarPlot(seu.obj, var = res, group.by = other.hash.ident, xlab = "Sample source",
-                          retain.factor.levels = TRUE, color.panel = cluster_col, 
-                          split.by = ident, split.nrow = nrow,split.ncol = ncol) +
-      ggtitle("Split by patient") + 
-      theme + 
-      guides(color = guide_legend(ncol = 2)) +
-      scale_x_discrete(limits = levels(seu.obj@meta.data[[other.hash.ident]]))
-    
-    b <- b + dittoBarPlot(seu.obj, group.by = res, var = other.hash.ident, xlab = "Cluster", 
-                          retain.factor.levels = TRUE, color.panel = HTO_col,
-                          split.by = ident, split.nrow = nrow,split.ncol = ncol) +
-      ggtitle("Split by patient") + 
-      guides(color = guide_legend(ncol = 2)) +
-      theme 
-    
-    cluster_composition_superset <- a/b 
+  # get color palette if not provided
+  if (is.null(cluster_col) && exists("cluster_col", envir = .GlobalEnv)) {
+    cluster_col <- get("cluster_col", envir = .GlobalEnv)
+  }
+  if (is.null(HTO_col) && exists("HTO_col", envir = .GlobalEnv)) {
+    HTO_col <- get("HTO_col", envir = .GlobalEnv)
   }
   
-  # save plot
-  pdf(file.path(save.loc, paste0(plot.name,".plotComposition.pdf")), width = plot.width, height = plot.height)
+  theme_custom <- theme(text = element_text(size = 7), 
+                        axis.text.x = element_text(angle = 90, size = 7, hjust = 1))
+  
+  # Helper for composition (returns a patchwork object)
+  make_composition <- function(by1, by2, col1, col2, split.by = ident, split.nrow = nrow, split.ncol = ncol) {
+    a <- dittoBarPlot(seu.obj, var = by2, group.by = by1, xlab = "Sample source", 
+                      retain.factor.levels = TRUE, color.panel = col1) +
+      ggtitle("Cell cluster proportions per sample type") +
+      theme_custom +
+      guides(color = guide_legend(ncol = 2)) +
+      NoLegend()
+    a_split <- dittoBarPlot(seu.obj, var = by2, group.by = by1, split.by = split.by, 
+                            xlab = "Sample source", retain.factor.levels = TRUE, color.panel = col1,
+                            split.nrow = split.nrow, split.ncol = split.ncol) +
+      ggtitle("Split by patient") + theme_custom + guides(color = guide_legend(ncol = 2))
+    a <- a + a_split
+    
+    b <- dittoBarPlot(seu.obj, group.by = by2, var = by1, xlab = "Cluster", 
+                      retain.factor.levels = TRUE, color.panel = col2) +
+      ggtitle("Sample type proportions per cell cluster") +
+      theme_custom +
+      guides(color = guide_legend(ncol = 2)) +
+      NoLegend()
+    b_split <- dittoBarPlot(seu.obj, var = by1, group.by = by2, split.by = split.by, 
+                            xlab = "Cluster", retain.factor.levels = TRUE, color.panel = col2,
+                            split.nrow = split.nrow, split.ncol = split.ncol) +
+      ggtitle("Split by patient") + guides(color = guide_legend(ncol = 2)) + theme_custom
+    b <- b + b_split
+    
+    a / b
+  }
+  
+  message("Generating cluster composition plot(s)...")
+  cluster_composition <- make_composition(hash.ident, res, cluster_col, HTO_col)
+  if (!is.null(other.hash.ident)) {
+    cluster_composition_superset <- make_composition(other.hash.ident, res, cluster_col, HTO_col)
+  }
+  
+  pdf(file.path(save.loc, "plots", paste0(plot.name, ".plotComposition.pdf")), width = plot.width, height = plot.height)
   print(cluster_composition)
-  if(!is.null(other.hash.ident)){
-    print(cluster_composition_superset)
-  }
+  if (!is.null(other.hash.ident)) print(cluster_composition_superset)
   dev.off()
   
-  if(isTRUE(print)){
-    if(!is.null(other.hash.ident)){
-      return(cluster_composition_superset)
-    } else {
-      return(cluster_composition)
-    }
+  if (isTRUE(print)) {
+    message("Print plot...")
+    return(if (!is.null(other.hash.ident)) cluster_composition_superset else cluster_composition)
   }
 }

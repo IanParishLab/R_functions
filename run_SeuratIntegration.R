@@ -13,78 +13,93 @@ run_SeuratIntegration <- function(seu.obj.list, merged.seu.obj.name, min.pc, see
   })
   
   # Create output directory
-  ifelse(!dir.exists(file.path(save.loc)),
-         dir.create(file.path(save.loc), recursive = TRUE), paste0(save.loc, " directory exists"))
+  dir.create(file.path(save.loc), showWarnings = FALSE, recursive = TRUE)
+
+  # get color palette if not provided
+  if (is.null(capture_col) && exists("capture_col", envir = .GlobalEnv)) {
+    capture_col <- get("capture_col", envir = .GlobalEnv)
+  }
+  if (is.null(HTO_col) && exists("HTO_col", envir = .GlobalEnv)) {
+    HTO_col <- get("HTO_col", envir = .GlobalEnv)
+  }
   
   reduction <- paste0("integrated.", integration_method_name)
   reduction.name <- paste0("umap.", integration_method_name)
   
-  # Merge scRNAseq into one dataset
-  if(is.null(add.cell.ids)){
-  print("[MSG] Merging data & add.cell.ids with `seu.obj@project.name` ...")
-    add.cell.ids <- sapply(seu.obj.list, function(seu) { seu@project.name }) %>% unlist %>% unname
-    merged.seu.obj <- merge(seu.obj.list[[1]], y = seu.obj.list[2:length(seu.obj.list)], add.cell.ids = add.cell.ids)
-  } else if(!is.null(add.cell.ids)) {
-    print("[MSG] Merging data & add provided add.cell.ids ...")
-    merged.seu.obj <- merge(seu.obj.list[[1]], y = seu.obj.list[2:length(seu.obj.list)], add.cell.ids = add.cell.ids)
-  }else if(add.cell.ids == "none") {
-    print("[MSG] Merging data ...")
-    merged.seu.obj <- merge(seu.obj.list[[1]], y = seu.obj.list[2:length(seu.obj.list)])
+  # Validate seu.obj.list
+  if (length(seu.obj.list) < 2) {
+    stop("[ERROR] seu.obj.list must contain at least two Seurat objects.")
   }
   
-  print("[MSG] normalizeAndScaleData ...")
-  merged.seu.obj <- normalizeAndScaleData(merged.seu.obj, 
-                                          dry_run = FALSE,
-                                          sampleName = merged.seu.obj.name, 
-                                          min.pc = min.pc, 
-                                          seed.use = seed.use, 
-                                          save.loc = save.loc,
-                                          vars.to.regress = vars.to.regress,
-                                          bk.list = bk.list, 
-                                          verbose = verbose)
-  
-  merged.seu.obj <- RunUMAP(merged.seu.obj, dims = 1:min.pc, seed.use = seed.use, 
-                            reduction = "pca", reduction.name = "umap.unintegrated", verbose = verbose)
-  # set theme
-  theme = theme(aspect.ratio = 1) & 
-    NoAxes()
-  
-  # plot
-  grouped_by <- if(!is.null(DimPlot.ident)){
-    c(DimPlot.ident, "orig.ident")
-  } else {
-    "orig.ident"
+  # Merge scRNAseq objects
+  message("[MSG] Merging Seurat objects ...")
+  if (is.null(add.cell.ids)) {
+    add.cell.ids <- sapply(seu.obj.list, \(seu) seu@project.name)
   }
-  before_int_umap <- DimPlot(merged.seu.obj, reduction = "umap.unintegrated", 
-                             group.by = grouped_by, 
-                             cols = cols) & theme
+  merged.seu.obj <- merge(
+    seu.obj.list[[1]],
+    y = seu.obj.list[2:length(seu.obj.list)],
+    add.cell.ids = if (!identical(add.cell.ids, "none")) add.cell.ids else NULL
+  )
   
-  print("[MSG] IntegrateLayers ...")
-  combined <- IntegrateLayers(object = merged.seu.obj,
-                              method = integration_method,
-                              orig.reduction = "pca",
-                              new.reduction = reduction,
-                              conda_env = conda_env_path,
-                              verbose = TRUE)
+  message("[MSG] Normalizing and scaling data ...")
+  merged.seu.obj <- normalizeAndScaleData(
+    merged.seu.obj, 
+    dry_run = FALSE,
+    sample_name = merged.seu.obj.name, 
+    min.pc = min.pc, 
+    seed.use = seed.use, 
+    save.loc = save.loc,
+    vars.to.regress = vars.to.regress,
+    bk.list = bk.list, 
+    verbose = verbose
+  )
   
-  print("[MSG] JoinLayers ...")
+  # Run UMAP before integration
+  merged.seu.obj <- RunUMAP(
+    merged.seu.obj, dims = 1:min.pc, seed.use = seed.use, 
+    reduction = "pca", reduction.name = "umap.unintegrated", verbose = verbose
+  )
+  
+  theme <- theme(aspect.ratio = 1) & NoAxes()
+  grouped_by <- if (!is.null(DimPlot.ident)) c(DimPlot.ident, "orig.ident") else "orig.ident"
+  
+  before_int_umap <- DimPlot(
+    merged.seu.obj, reduction = "umap.unintegrated", 
+    group.by = grouped_by, cols = cols
+  ) & theme
+  
+  # Integrate layers
+  message("[MSG] Running IntegrateLayers ...")
+  combined <- IntegrateLayers(
+    object = merged.seu.obj,
+    method = integration_method,
+    orig.reduction = "pca",
+    new.reduction = reduction,
+    conda_env = conda_env_path,
+    verbose = TRUE
+  )
+  
+  message("[MSG] Running JoinLayers ...")
   combined <- JoinLayers(combined)
   
-  combined <- RunUMAP(combined, dims = 1:min.pc, seed.use = seed.use,
-                      reduction = reduction, reduction.name = reduction.name, 
-                      verbose = FALSE)
+  combined <- RunUMAP(
+    combined, dims = 1:min.pc, seed.use = seed.use,
+    reduction = reduction, reduction.name = reduction.name, 
+    verbose = FALSE
+  )
   
-  # plot
-  after_int_umap <- DimPlot(combined, 
-                            reduction = reduction.name, 
-                            group.by = grouped_by, 
-                            cols = cols) & theme
+  after_int_umap <- DimPlot(
+    combined, reduction = reduction.name, 
+    group.by = grouped_by, cols = cols
+  ) & theme
   
-  print("[MSG] Saving integrated object ...")
+  message("[MSG] Saving integrated object ...")
   saveRDS(combined, file.path(save.loc, paste0(merged.seu.obj.name, ".rds")))
   
-  # Save plot
-  ggsave(before_int_umap / after_int_umap,
-         filename = file.path(save.loc, paste0("before_after_integratelayers_umap.", merged.seu.obj.name, ".pdf")),
-         width = 10, height = 10, device = 'pdf')
+  ggsave(
+    before_int_umap / after_int_umap,
+    filename = file.path(save.loc, paste0("before_after_integration_umap.", merged.seu.obj.name, ".pdf")),
+    width = 10, height = 10, device = "pdf"
+  )
 }

@@ -1,28 +1,30 @@
-find_markers <- function(SeuratObjectIN,
-                         DefaultSeuratAssay,
-                         SeuratIdents,
+find_markers <- function(seu_path,
+                         assay,
+                         group.by,
                          ident.1 = NULL,
                          ident.2 = NULL,
                          max.cells.per.ident = Inf, 
                          logfc.threshold = 0.125, 
                          min.pct = 0.05,
                          test.use = "LR",
-                         latent.vars = paste0("nCount_",DefaultSeuratAssay),
-                         save.loc="./full.markers/",
+                         latent.vars = paste0("nCount_",assay),
+                         save.loc="find_markers",
                          run_FindAllMarkers = TRUE,
                          run_FindMarkers = TRUE,
                          annotate_peaks = NULL,
-                         annotations = NULL) {
-  require(Seurat)
-  require(Signac)
-  # require(SeuratDisk)
-  require(tidyverse)
+                         annotations = NULL,
+                         ...) {
+  suppressPackageStartupMessages({
+    require(Seurat)
+    require(tidyverse)
+    # require(SeuratDisk)
+  })
   
   ################ tmp ################ 
-  # SeuratObjectIN="/researchers/nicole.saw/projects/Sinead_Reading/R/TCF1plus.rds"
-  # DefaultSeuratAssay = "RNA"
+  # seu_path="/researchers/nicole.saw/projects/Sinead_Reading/R/TCF1plus.rds"
+  # assay = "RNA"
   # latent.vars = "nCount_RNA"
-  # SeuratIdents = "RNA_snn_res.0.9"
+  # group.by = "RNA_snn_res.0.9"
   # save.loc="/researchers/nicole.saw/projects/Sinead_Reading/R/full.markers/"
   # run_FindAllMarkers = TRUE
   # run_FindMarkers = TRUE
@@ -33,66 +35,66 @@ find_markers <- function(SeuratObjectIN,
   # annotations = readRDS("/researchers/nicole.saw/projects/Sinead_Reading/R/EnsDb.Mmusculus.v79_annotations.rds")
   ################ tmp ################ 
   
-  # setup #
-  object.name <- deframe(strsplit(SeuratObjectIN,"/"))[length(deframe(strsplit(SeuratObjectIN,"/")))]
-  object.name <- gsub(".rds","",object.name)
-  saveRDSOutputName = paste0(c(object.name,DefaultSeuratAssay,test.use),collapse=".")
+  # start setup #
+  object_name <- deframe(strsplit(seu_path,"/"))[length(deframe(strsplit(seu_path,"/")))]
+  object_name <- gsub(".rds","",object_name)
+  output_name <- paste0(c(object_name,assay,test.use),collapse=".")
   
   # make output directory
-  ifelse(!dir.exists(file.path(save.loc)),
-         dir.create(file.path(save.loc), recursive = TRUE), paste0(save.loc," directory exists"))
+  dir.create(save.loc, showWarnings = FALSE, recursive = TRUE)
+  
   # end setup #
   
-  # check if saveDir exists
-  print("[MSG] Checking save.loc, the output file path...")
+  # check if save.loc exists
+  message("[MSG] Checking save.loc, the output file path...")
   ifelse(!dir.exists(file.path(save.loc)), dir.create(file.path(save.loc)), FALSE)
   
-  # read seurat object
-  print(paste0("[MSG] reading in seurat object from ", SeuratObjectIN," ..."))
-  so <- readRDS(SeuratObjectIN)
+  # read Seurat object
+  message("[MSG] reading in Seurat object from ", seu_path)
+  so <- readRDS(seu_path)
   
-  # set seurat object default assay and identity to use
-  print(paste0("[MSG] set default assay as ", DefaultSeuratAssay, " and Idents set as ", SeuratIdents))
-  DefaultAssay(so) <- DefaultSeuratAssay
+  # set Seurat object default assay and identity to use
+  message("[MSG] Default assay: ", assay, ", Idents: ", group.by)
+  DefaultAssay(so) <- assay
+  Idents(so) <- group.by
   
   # if SCT assay is used run this
   if(DefaultAssay(so) == "SCT"){
     so <- PrepSCTFindMarkers(so, assay = "SCT", verbose = FALSE)
   }
   
-  # setting Idents and print clusters analysed
-  Idents(so) <- SeuratIdents
-  
-  clusters = unique(so[[SeuratIdents]]) %>% deframe
+  # Print clusters analysed
+  clusters = unique(so[[group.by]]) %>% deframe
   print((paste0("clusters analysed:", paste0(gtools::mixedsort(unlist(clusters)), collapse = ","))))
   
   # running FindAllMarkers
   if (run_FindAllMarkers == TRUE){  
-    print(paste0("[MSG] run FindAllMarkers... with logfc.threshold = ", logfc.threshold, ", min.pct = ", min.pct, ", test.use = ", test.use, 
-             ", latent.vars = ", paste0(latent.vars, collapse = ",")))
-
-    FindAllMarkers.so <- FindAllMarkers(so, assay=DefaultSeuratAssay, 
-                                        logfc.threshold = logfc.threshold, min.pct = min.pct, 
-                                        test.use = test.use, latent.vars = latent.vars,
-                                        max.cells.per.ident = max.cells.per.ident)
+    message("[MSG] run FindAllMarkers... with logfc.threshold = ", logfc.threshold, ", min.pct = ", min.pct, ", test.use = ", test.use, 
+            ", latent.vars = ", paste0(latent.vars, collapse = ","))
+    
+    find_all_markers <- FindAllMarkers(so, assay=assay, 
+                                       logfc.threshold = logfc.threshold, min.pct = min.pct, 
+                                       test.use = test.use, latent.vars = latent.vars,
+                                       max.cells.per.ident = max.cells.per.ident)
     # annotate peaks using ClosestFeature()
     if(!is.null(annotate_peaks))  {
+      require(Signac)
       require(EnsDb.Mmusculus.v79)
       require(BSgenome.Mmusculus.UCSC.mm10)
       
-      print(paste0("[MSG] Annotating peaks..."))
+      message("[MSG] Annotating peaks...")
       annotations <- annotations
-      colnames(FindAllMarkers.so)[which(colnames(FindAllMarkers.so) == "gene")] <- "peaks"
-      dacr_ann <- ClosestFeature(so[[DefaultSeuratAssay]], annotation = annotations, regions = FindAllMarkers.so$peaks)
+      colnames(find_all_markers)[which(colnames(find_all_markers) == "gene")] <- "peaks"
+      dacr_ann <- ClosestFeature(so[[assay]], annotation = annotations, regions = find_all_markers$peaks)
       colnames(dacr_ann)[which(colnames(dacr_ann) %in% c("closest_region","query_region"))] <- c("closest_peaks","peaks")
-      da_cr <- full_join(FindAllMarkers.so, dacr_ann, by = "peaks") %>% distinct()
+      da_cr <- full_join(find_all_markers, dacr_ann, by = "peaks") %>% distinct()
       
-      print(paste0("[MSG] saving FindAllMarkers results in ","FindAllMarkers.",saveRDSOutputName,".annotated_dacr.rds"))
-      saveRDS(da_cr, file.path(save.loc, paste0("FindAllMarkers.",saveRDSOutputName,".annotated_dacr.rds")))
+      message("[MSG] saving FindAllMarkers results in ","FindAllMarkers.",output_name,".annotated_dacr.rds")
+      saveRDS(da_cr, file.path(save.loc, paste0("FindAllMarkers.",output_name,".annotated_dacr.rds")))
     } else {
       
-      print(paste0("[MSG] saving FindAllMarkers results in ",saveRDSOutputName,"..."))
-      saveRDS(FindAllMarkers.so, file.path(save.loc, paste0("FindAllMarkers.",saveRDSOutputName,".rds")))
+      message("[MSG] saving FindAllMarkers results in ",output_name,"...")
+      saveRDS(find_all_markers, file.path(save.loc, paste0("FindAllMarkers.",output_name,".rds")))
     }
   } 
   
@@ -100,38 +102,40 @@ find_markers <- function(SeuratObjectIN,
   if (run_FindMarkers == TRUE){     
     # if all clusters
     # run findmarkers with logfc.threshold = 0, min.pct = 0
-    print(paste0("[MSG] run FindMarkers... with logfc.threshold = 0, and min.pct = 0, and test.use = ", test.use,
-                 ", and latent.vars = ", paste0(latent.vars, collapse = ",")))
-
-    FindMarkers.so <- list()
+    message("[MSG] run FindMarkers... with logfc.threshold = 0, and min.pct = 0, and test.use = ", test.use,
+            ", and latent.vars = ", paste0(latent.vars, collapse = ","))
+    
+    find_markers <- list()
     for (cluster in clusters){
-      FindMarkers.so[[cluster]] <- FindMarkers(so, ident.1 = cluster,
-                                               assay = DefaultSeuratAssay, 
-                                               logfc.threshold = 0, 
-                                               min.pct = 0, 
-                                               test.use= test.use, 
-                                               latent.vars = latent.vars
-                                               )
+      find_markers[[cluster]] <- FindMarkers(so, 
+                                             ident.1 = cluster,
+                                             assay = assay, 
+                                             logfc.threshold = 0, 
+                                             min.pct = 0, 
+                                             test.use= test.use, 
+                                             latent.vars = latent.vars,
+                                             ...
+      )
       
-      FindMarkers.so[[cluster]]$cluster <- cluster
-      FindMarkers.so[[cluster]]$gene <- rownames(FindMarkers.so[[cluster]])
+      find_markers[[cluster]]$cluster <- cluster
+      find_markers[[cluster]]$gene <- rownames(find_markers[[cluster]])
     }
-    FindMarkers.so.rbind <- plyr::rbind.fill(FindMarkers.so)
+    find_markers.rbind <- plyr::rbind.fill(find_markers)
     
     if(!is.null(annotate_peaks)) {
-      print(paste0("[MSG] Annotating peaks..."))
+      message("[MSG] Annotating peaks...")
       annotations <- annotations
-      colnames(FindMarkers.so.rbind)[which(colnames(FindMarkers.so.rbind) == "gene")] <- "peaks"
-      dacr_ann <- ClosestFeature(so[[DefaultSeuratAssay]], annotation = annotations, regions = FindMarkers.so.rbind$peaks)
+      colnames(find_markers.rbind)[which(colnames(find_markers.rbind) == "gene")] <- "peaks"
+      dacr_ann <- ClosestFeature(so[[assay]], annotation = annotations, regions = find_markers.rbind$peaks)
       colnames(dacr_ann)[which(colnames(dacr_ann) %in% c("closest_region","query_region"))] <- c("closest_peaks","peaks")
-      da_cr <- full_join(FindMarkers.so.rbind, dacr_ann, by = "peaks") %>% distinct()
+      da_cr <- full_join(find_markers.rbind, dacr_ann, by = "peaks") %>% distinct()
       
-      print(paste0("[MSG] saving FindMarkers. results in ","FindMarkers.",saveRDSOutputName,".annotated_dacr.rds"))
-      saveRDS(da_cr, file.path(save.loc, paste0("FindMarkers.",saveRDSOutputName,".annotated_dacr.rds")))
+      message("[MSG] saving FindMarkers results in ","FindMarkers.",output_name,".annotated_dacr.rds")
+      saveRDS(da_cr, file.path(save.loc, paste0("FindMarkers.",output_name,".annotated_dacr.rds")))
     } else {
       
-      print(paste0("[MSG] saving FindMarkers. results in ","FindMarkers.",saveRDSOutputName,".rds"))
-      saveRDS(FindMarkers.so.rbind, file.path(save.loc, paste0("FindMarkers.",saveRDSOutputName,".rds")))
+      message("[MSG] saving FindMarkers results in ","FindMarkers.",output_name,".rds")
+      saveRDS(find_markers.rbind, file.path(save.loc, paste0("FindMarkers.",output_name,".rds")))
     }
   }
 }

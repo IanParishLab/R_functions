@@ -14,7 +14,7 @@ run_Azimuth <- function(obj, reference, save.loc, avail.refs = FALSE, ...){
   }
   
   # run Azimuth
-  for(i in 1:length(reference)){
+  for(i in seq_along(reference)){
     
     ref_suffix = paste0(".", names(reference)[i])
     umap.name = paste0("umap", ref_suffix)
@@ -32,16 +32,14 @@ run_Azimuth <- function(obj, reference, save.loc, avail.refs = FALSE, ...){
     
   }
   
+  # make output directory
+  dir.create(file.path(save.loc, "int_obj"), showWarnings = FALSE, recursive = TRUE)
+  
   # save cell labels
   ref_suffix <- paste0(".", names(reference), collapse = "|") 
   save_name <- paste0(".", names(reference), collapse = "|") %>% 
     gsub("\\.","",.) %>% gsub("\\|","_",.)
   pred_cell_labels <- obj@meta.data[grep(ref_suffix, colnames(obj@meta.data), value = TRUE)]
-
-  ifelse(!dir.exists(file.path(save.loc, "int_obj")),
-         dir.create(file.path(save.loc, "int_obj"), recursive = TRUE), paste0(save.loc," directory exists"))
-
-
   saveRDS(pred_cell_labels, file.path(save.loc, "int_obj", paste0(obj@project.name,".",save_name,".predicted_cell_labels.azimuth.rds")))
   
   return(obj)

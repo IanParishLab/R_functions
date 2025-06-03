@@ -1,4 +1,4 @@
-checkRegressGenes <- function(seu.obj, sampleName, pca_npcs = 50, ccgenes, save.loc, regress_genes, label_genes = NULL){        
+checkRegressGenes <- function(seu.obj, sample_name, pca_npcs = 50, ccgenes, save.loc, regress_genes, label_genes = NULL){        
   
   suppressPackageStartupMessages({
     require(Seurat)
@@ -9,9 +9,8 @@ checkRegressGenes <- function(seu.obj, sampleName, pca_npcs = 50, ccgenes, save.
   })
   
   # make output directory
-  ifelse(!dir.exists(file.path(save.loc, "plots")),
-         dir.create(file.path(save.loc, "plots"), recursive = TRUE), paste0(save.loc," directory exists"))
-  
+  dir.create(file.path(save.loc, "plots"), showWarnings = FALSE, recursive = TRUE)
+
   seu.obj <- NormalizeData(seu.obj, verbose = FALSE)
   seu.obj <- FindVariableFeatures(seu.obj,selection.method = "vst", nfeatures = 2000)
   seu.obj <- ScaleData(seu.obj, verbose = FALSE)
@@ -38,7 +37,7 @@ checkRegressGenes <- function(seu.obj, sampleName, pca_npcs = 50, ccgenes, save.
                        reduction = "pca")
   # plot module scores
   moduleScorePlots <- FeaturePlot(seu.obj, reduction = "pca", features = c(paste0(signature.names,"_kNN")), ncol = 2) &
-    theme(aspect.ratio = 1, axis.title.x = element_text(size = 7), axis.title.y = element_text(size = 7)) &
+    theme(aspect.ratio = 1, axis.text = element_text(size = 7), axis.title.x = element_text(size = 7), axis.title.y = element_text(size = 7)) &
     scale_colour_gradientn(colours = rev(brewer.pal(n = 11, name = "RdBu")))
   
   # https://github.com/satijalab/seurat/issues/147#issuecomment-360896778
@@ -79,12 +78,8 @@ checkRegressGenes <- function(seu.obj, sampleName, pca_npcs = 50, ccgenes, save.
   HVGLabelledPlot <- LabelPoints(plot = VariableFeaturePlot(seu.obj), repel = TRUE, points = label_genes) +
     theme(aspect.ratio = 1)
   
-  # make output directory
-  ifelse(!dir.exists(file.path(save.loc)),
-         dir.create(file.path(save.loc), recursive = TRUE), paste0(save.loc," directory exists"))
-  
   # save plots
-  pdf(file.path(save.loc, "plots", paste0(sampleName, ".checkRegressGenes_plots.pdf")), width = 6, height = 6)
+  pdf(file.path(save.loc, "plots", paste0(sample_name, ".checkRegressGenes_plots.pdf")), width = 6, height = 6)
   print(moduleScorePlots)
   print(HVGLabelledPlot)
   dev.off()

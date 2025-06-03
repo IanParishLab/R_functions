@@ -2,7 +2,7 @@
 run_decontX <- function(
     raw = NULL, 
     filt,
-    sampleName,
+    sample_name,
     Read10X = TRUE,
     min.cells = 1,
     rna_density_plot_markers = NULL,
@@ -20,19 +20,14 @@ run_decontX <- function(
   })
   
   # make output directory
-  ifelse(!dir.exists(file.path(save.loc)),
-         dir.create(file.path(save.loc), recursive = TRUE), paste0(save.loc," directory exists"))
-  
-  lapply(c("int_obj","plots"),function(d){
-    ifelse(!dir.exists(file.path(save.loc,d)),
-           dir.create(file.path(save.loc,d), recursive = TRUE), paste0(d," directory exists"))
-  })
+  dir.create(file.path(save.loc, "int_obj"), showWarnings = FALSE, recursive = TRUE)
+  dir.create(file.path(save.loc, "plots"), showWarnings = FALSE, recursive = TRUE)
   
   ############################################################
   # i=length(capture)
   # raw = raw.list[[i]]
   # filt = filt.list[[i]]
-  # sampleName = capture[i]
+  # sample_name = capture[i]
   # Read10X = TRUE
   # min.cells = 1
   # rna_density_plot_markers = c("CD8A","CD8B")
@@ -42,80 +37,66 @@ run_decontX <- function(
   ############################################################
   
   # read files
-  if (Read10X == TRUE){
-    print("[MSG] Using Read10X...")
-    
-    if(!is.null(raw)){
-      raw <- Read10X(raw)
-    }
-    
+  if (Read10X) {
+    message("[INFO] Reading matrices with Read10X...")
+    if (!is.null(raw)) raw <- Read10X(raw)
     filt <- Read10X(filt)
   }
-  
-  if (isTRUE(use_decontPro)){
-    if(!is.null(raw)){
-      raw.counts <- raw$`Gene Expression`
-    }
+
+  if (use_decontPro) { # might rename this as it's confusing
+    raw.counts <- if (!is.null(raw)) raw$`Gene Expression` else NULL
     filt.counts <- filt$`Gene Expression`
-  } else if(isFALSE(use_decontPro)){
-    if(!is.null(raw)){
-      raw.counts <- raw
-    }
+  } else {
+    raw.counts <- raw
     filt.counts <- filt
   }
   
   # filter GEX matrix
-  print("[MSG] Filter cells with zero counts across all genes...")
-  filt.counts <- filt.counts[which(rowSums(filt.counts > 0) >= min.cells), ]
-  filt.counts <- filt.counts[,which(colSums(filt.counts) > 0)]
-  if(!is.null(raw)){
+  message("[MSG] Filtering out genes with low counts...")
+  filt.counts <- filt.counts[rowSums(filt.counts > 0) >= min.cells, ]
+  filt.counts <- filt.counts[, colSums(filt.counts) > 0]
+
+  if (!is.null(raw.counts)) {
     raw.counts <- raw.counts[rownames(filt.counts), colnames(filt.counts)]
   }
   
-  # create sce object
-  sce <- SingleCellExperiment(list(counts = filt.counts))
-  
   # decontX
-  if(!is.null(raw)){
+  sce <- SingleCellExperiment(list(counts = filt.counts))
+  sce <- SingleCellExperiment(list(counts = filt.counts))
+  if (!is.null(raw.counts)) {
+  message("[INFO] Running decontX...")
     sce.raw <- SingleCellExperiment(list(counts = raw.counts))
-    print("[MSG] decontX...")
     sce <- decontX::decontX(sce, background = sce.raw)
   } else {
-    print("[MSG] decontX without raw counts as background...")
+    message("[INFO] Running decontX without raw counts as background..")
     sce <- decontX::decontX(sce)
   }
-  
+
   # save decontaminated RNA counts as SCE
-  print("[MSG] Saving RNA decontX sce ...")
-  saveRDS(sce, file.path(save.loc, "int_obj", paste0(sampleName,".RNA_decontX_sce.rds")))
+  message("[MSG] Save decontaminated SCE ...")
+  saveRDS(sce, file.path(save.loc, "int_obj", paste0(sample_name, ".RNA_decontX_sce.rds")))
   
   # plot decontX contamination
-  if(is.null(rna_density_plot_markers)) {
-    print(paste0("[MSG] Setting first 2 markers to plot: ", 
-                 paste0(rownames(sce)[1:2],collapse = ",")
-    ))
-    
-    rna_density_plot_markers <- rownames(sce)[1:2]
-  } 
+  message("[INFO] Plotting contamination and gene density...")
+  original.filt.counts <- if (use_decontPro) filt$`Gene Expression` else filt
   
-  print(paste0("[MSG] plot DecontX..."))
-  if(isTRUE(use_decontPro)){
-    original.filt.counts <- filt$`Gene Expression`
-  } else if (isFALSE(use_decontPro)){
-    original.filt.counts <- filt
+  if (is.null(rna_density_plot_markers)) {
+    message("[INFO] Marker genes not provided; using first two genes.")
+    rna_density_plot_markers <- head(rownames(sce), 2)
   }
   
-  p1 <- plotDecontXContamination(sce) +
-    ggtitle(paste0(ncol(sce), " cells"))
+  p1 <- plotDecontXContamination(sce) + ggtitle(paste(ncol(sce), "cells"))
   p2 <- plotDensity(original.filt.counts,
                     round(decontXcounts(sce)),
-                    rna_density_plot_markers 
-  )
-  
-  pdf(file.path(save.loc, "plots", paste0(sampleName, ".rna.umap.pdf")), height = 6, width = 6)
+                    rna_density_plot_markers)
+
+  pdf(file.path(save.loc, "plots", paste0(sample_name, ".rna.umap.pdf")), height = 6, width = 6)
   print(p1)
   print(p2)
   dev.off()
+
+    invisible(sce)
+
   
   # decontPro
   # if (isTRUE(use_decontPro)){
@@ -157,7 +138,7 @@ run_decontX <- function(
     # }
     # # save HTO count object
     # print("[MSG] Saving decontPro HTO sce ...")
-    # saveRDS(decont.HTO, file.path(save.loc, "int_obj", paste0(sampleName,".HTO_decontPro_sce.rds")))
+    # saveRDS(decont.HTO, file.path(save.loc, "int_obj", paste0(sample_name,".HTO_decontPro_sce.rds")))
     #
     # # plots
     # p1 <- DimPlot(hto.obj, reduction = "umap_hto", label = TRUE)
@@ -165,7 +146,7 @@ run_decontX <- function(
     # p2 <- plotDensity(counts,
     #                   decont.HTO$decontaminated_counts,
     #                   rownames(counts))
-    # pdf(file.path(save.loc, "plots", paste0(sampleName, ".hto.density.pdf")), height = 6, width = 6)
+    # pdf(file.path(save.loc, "plots", paste0(sample_name, ".hto.density.pdf")), height = 6, width = 6)
     # print(p1)
     # print(p2)
     # dev.off()

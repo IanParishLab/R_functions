@@ -8,18 +8,26 @@ plot_scRepertoire <- function(so,
                               reduction.name = "umap.scvi", 
                               hash.superset.ident = "sampleSourceSuperset",
                               circle_filter_clusters = NULL, 
+                              cluster_col,
                               save.loc = "./scRepertoire", 
                               save.name = "CD8"){
   
-  suppressMessages(library(ggraph))
-  suppressMessages(library(ggalluvial))
-  suppressMessages(library(ggpubr))
-  suppressMessages(library(scRepertoire))
-  suppressMessages(library(Seurat))
-  suppressMessages(library(tidyverse))
-  suppressMessages(library(patchwork))
-  suppressMessages(library(cowplot))
-  suppressMessages(library(circlize))
+  suppressPackageStartupMessages({
+  library(ggraph)
+  library(ggalluvial)
+  library(ggpubr)
+  library(scRepertoire)
+  library(Seurat)
+  library(tidyverse)
+  library(patchwork)
+  library(cowplot)
+  library(circlize)
+  })
+  
+  # get colour paletter if not provided
+  if (is.null(cluster_col) && exists("cluster_col", envir = .GlobalEnv)) {
+    cluster_col <- get("cluster_col", envir = .GlobalEnv)
+  }
   
   # Split seurat object for per patient clonotype analysis 
   ## Basic quantification of clonotypes

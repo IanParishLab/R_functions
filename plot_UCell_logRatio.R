@@ -1,11 +1,11 @@
-plot_UCell_logRatio <- function(so,group1,group2, reduction = 'umap.scvi', group.ident = NULL, save.loc, nrow, ncol,width, height){
+plot_UCell_logRatio <- function(so, group1, group2, reduction = 'umap.scvi', group.ident = NULL, 
+                                save.loc = "plots", alpha = 0.4, raster = FALSE, nrow, ncol, width, height){
   suppressPackageStartupMessages({
     library(UCell)
     library(Seurat)
     library(tidyverse)
     library(RColorBrewer)
   })
-  
   
   # so = tmp
   # group1 = 'Tolerance_UCell'
@@ -14,14 +14,15 @@ plot_UCell_logRatio <- function(so,group1,group2, reduction = 'umap.scvi', group
   # group.ident = 'PatientID'
   # save.loc = save.loc
   
+  # make output directory
+  dir.create(file.path(save.loc, "plots"), showWarnings = FALSE, recursive = TRUE)
+  
   # get test name
   test_name = paste0(c(group1,group2), collapse = "_") %>% gsub("_UCell","",.)
   
   # calculate ratios
   so[[test_name]] <- so[[group1]]/so[[group2]]
-  so <- SmoothKNN(so,
-                  signature.names = test_name,
-                  reduction = "pca")
+  so <- SmoothKNN(so, signature.names = test_name, reduction = "pca")
   
   # calculate log ratios 
   knn_name = paste0(test_name,"_kNN")
@@ -38,17 +39,20 @@ plot_UCell_logRatio <- function(so,group1,group2, reduction = 'umap.scvi', group
   plot_cells <- colnames(so)[-rm_cells]
   
   # make and save plot
-  p <- FeaturePlot(so, cells = plot_cells, reduction = reduction, order = TRUE, repel = TRUE,
+  p <- FeaturePlot(so, cells = plot_cells, 
+                   reduction = reduction, order = TRUE, repel = TRUE, alpha = alpha, raster = raster,
                    features = log_knn_name)
-  q <- FeaturePlot(so, cells = plot_cells, split.by = group.ident, reduction = reduction, order = TRUE, repel = TRUE,
-              features = log_knn_name, ncol = ncol) &
+  q <- FeaturePlot(so, cells = plot_cells, split.by = group.ident, 
+                   reduction = reduction, order = TRUE, repel = TRUE, alpha = alpha, raster = raster,
+                   features = log_knn_name, ncol = ncol) &
     scale_colour_gradientn(colours = rev(brewer.pal(n = 11, name = "RdBu")))
   plot <- (p + q) &
     NoAxes() &
     theme(aspect.ratio = 1, text = element_text(size = 7),
-          axis.title.x = element_text(size = 7), axis.title.y = element_text(size = 7)) 
+          axis.title.x = element_text(size = 7), 
+          axis.title.y = element_text(size = 7)) 
   
-  pdf(file.path(save.loc,paste0(test_name,'.FeaturePlot.pdf')), width = width, height = height)
+  pdf(file.path(save.loc,"plots",paste0(test_name,'.FeaturePlot.pdf')), width = width, height = height)
   print(plot + plot_layout(width = c(0.1,0.4), nrow = nrow, ncol=ncol))
   dev.off()
   

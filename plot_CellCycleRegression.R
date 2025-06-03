@@ -1,4 +1,4 @@
-plot_CellCycleRegression <- function(seu.obj, sampleName, ccgenes, save.loc , npcs = 35){
+plot_CellCycleRegression <- function(seu.obj, sample_name, ccgenes, save.loc , npcs = 30){
   
   suppressPackageStartupMessages({
     require(Seurat)
@@ -6,9 +6,8 @@ plot_CellCycleRegression <- function(seu.obj, sampleName, ccgenes, save.loc , np
   })
   
   # make output directory
-  ifelse(!dir.exists(file.path(save.loc, "plots")),
-         dir.create(file.path(save.loc, "plots"), recursive = TRUE), paste0(save.loc," directory exists"))
-  
+dir.create(file.path(save.loc, "plots"), showWarnings = FALSE, recursive = TRUE)
+
   # see if cell cycle needs to be regressed
   seu.obj <- NormalizeData(object = seu.obj)
   seu.obj <- CellCycleScoring(seu.obj, 
@@ -20,7 +19,7 @@ plot_CellCycleRegression <- function(seu.obj, sampleName, ccgenes, save.loc , np
   
   # save plot
   ggsave(DimPlot(seu.obj, reduction = "pca", group.by = "Phase"), 
-         filename = file.path(save.loc,"plots", paste0(sampleName, ".CellCyclePhase.pdf")), 
+         filename = file.path(save.loc,"plots", paste0(sample_name, ".CellCyclePhase.pdf")), 
          device = "pdf", width = 5, height = 5)
   
   return(seu.obj)

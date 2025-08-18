@@ -1,4 +1,4 @@
-plot_UCell <- function(seu.obj, gn, reduction.name, cluster.ident, 
+plot_UCell <- function(seu.obj, gn, reduction = "pca", reduction.name, cluster.ident, 
                        label = TRUE, alpha = 0.4, cluster_col = NULL,
                        save.loc = "plots", plot.name, plot.width = 10, plot.height = 6,
                        vln = FALSE, ncol = 4, raster = FALSE, print = FALSE){
@@ -23,7 +23,7 @@ plot_UCell <- function(seu.obj, gn, reduction.name, cluster.ident,
   signature.names <- paste0(names(gn), "_UCell")
   
   # `SmoothKNN` function performs smoothing of single-cell scores by weighted average of the k-nearest neighbors. It can be useful to 'impute' scores by neighboring cells and partially correct data sparsity.
-  seu.obj1 <- SmoothKNN(seu.obj1, signature.names = signature.names, reduction="pca")
+  seu.obj1 <- SmoothKNN(seu.obj1, signature.names = signature.names, reduction = reduction)
   
   if(isTRUE(label)){
     fp <- FeaturePlot(seu.obj1, reduction = reduction.name, order = TRUE, repel = TRUE, label = TRUE, alpha = alpha,

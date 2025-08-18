@@ -31,5 +31,5 @@ prep_HTODemux <- function(seu.obj, HTO.counts.path, sample_name, HTO_AssayName =
     
   }
   
-  return(seu.obj)
+  return(seu.obj) 
 }

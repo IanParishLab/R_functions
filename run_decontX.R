@@ -53,8 +53,8 @@ run_decontX <- function(
   
   # filter GEX matrix
   message("[MSG] Filtering out genes with low counts...")
-  filt.counts <- filt.counts[rowSums(filt.counts > 0) >= min.cells, ]
-  filt.counts <- filt.counts[, colSums(filt.counts) > 0]
+  filt.counts <- filt.counts[which(rowSums(filt.counts > 0) >= min.cells),]
+  filt.counts <- filt.counts[, which(colSums(filt.counts) > 0) ]
 
   if (!is.null(raw.counts)) {
     raw.counts <- raw.counts[rownames(filt.counts), colnames(filt.counts)]

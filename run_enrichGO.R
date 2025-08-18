@@ -1,4 +1,4 @@
-run_enrichGO <- function(markers, split.by = "cluster", gene.col = "gene", direction = "both",
+run_enrichGO <- function(markers, split.by = "cluster", gene.col = "gene", rm_gn = NULL, direction = "both", 
                          p.value.col = "p_val_adj", p.value.threshold = 0.05, logfc.col = "avg_log2FC", logfc.threshold = 0,
                          res.name = "DEMethod.projectName.assayName.DETest", organism, save.loc){
   library(clusterProfiler)
@@ -22,8 +22,7 @@ run_enrichGO <- function(markers, split.by = "cluster", gene.col = "gene", direc
   # save df only
   ego_res_all_df <- lapply(markers, function(m){
     
-    rm_gn <- grep("^Gm|Rik$", m[[gene.col]])
-    if(length(rm_gn) > 1){
+    if(!is.null(rm_gn)){
       m <- m[-rm_gn,]
     } else {
       m <- m
@@ -98,52 +97,4 @@ run_enrichGO <- function(markers, split.by = "cluster", gene.col = "gene", direc
   })
   ego_res_all_df <- plyr::rbind.fill(ego_res_all_df)
   saveRDS(ego_res_all_df, file.path(save.loc, paste0("enrichGOresDF.",res.name,".rds")))
-  
-  # ## save result objects only
-  # if (direction == "both" | direction == "up"){
-  #   # upregulated markers only
-  #   ego_res_all_up <- lapply(markers, function(m){
-  #     m <- m[grep("^Gm|Rik$", m[[gene.col]], invert = TRUE),]
-  #     original_gene_list <- setNames(m[[logfc.col]], m[[gene.col]])
-  #     gene_list <- na.omit(original_gene_list)
-  #     gene_list <-  sort(gene_list, decreasing = TRUE)
-  #     
-  #     ## upregulated
-  #     ego <- enrichGO(gene = m[[gene.col]][which(m[[p.value.col]] < 0.05 & m[[logfc.col]] > 0)],
-  #                     universe = names(gene_list),
-  #                     OrgDb = OrgDb,
-  #                     keyType = "SYMBOL",
-  #                     ont = "ALL",
-  #                     pAdjustMethod = "BH",
-  #                     pvalueCutoff = 0.05,
-  #                     qvalueCutoff = 0.05, 
-  #                     pool = TRUE)
-  #     return(ego)
-  #   })
-  #   saveRDS(ego_res_all_up, file.path(save.loc, paste0("enrichGOresObj.up.",res.name,".rds")))
-  # }
-  # 
-  # # downregulated markers only
-  # if (direction == "both" | direction == "dn"){
-  #   ego_res_all_dn <- lapply(markers, function(m){
-  #     m <- m[grep("^Gm|Rik$", m[[gene.col]], invert = TRUE),]
-  #     original_gene_list <- setNames(m[[logfc.col]], m[[gene.col]])
-  #     gene_list <- na.omit(original_gene_list)
-  #     gene_list <-  sort(gene_list, decreasing = TRUE)
-  #     
-  #     ## downregulated
-  #     ego <- enrichGO(gene = m[[gene.col]][which(m[[p.value.col]] < 0.05 & m[[logfc.col]] < 0)],
-  #                     universe = names(gene_list),
-  #                     OrgDb = OrgDb,
-  #                     keyType = "SYMBOL",
-  #                     ont = "ALL",
-  #                     pAdjustMethod = "BH",
-  #                     pvalueCutoff = 0.05,
-  #                     qvalueCutoff = 0.05, 
-  #                     pool = TRUE)
-  #     
-  #     return(ego)
-  #   })
-  #   saveRDS(ego_res_all_dn, file.path(save.loc, paste0("enrichGOresObj.dn.",res.name,".rds")))
-  # }
 }

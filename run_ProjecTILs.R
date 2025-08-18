@@ -37,7 +37,7 @@ run_ProjecTILs <- function(
       query,
       ref = ref,
       split.by = split_by,
-      filter_cell = filter_cell,
+      filter.cells = filter_cell,
       reduction = reduction,
       ndim = NULL,
       k = k,
@@ -50,7 +50,7 @@ run_ProjecTILs <- function(
       ref = ref,
       split.by = split_by,
       reduction = reduction,
-      filter.cell = filter_cell,
+      filter.cells = filter_cell,
       skip.normalize = skip_normalize,
       k = k
     )

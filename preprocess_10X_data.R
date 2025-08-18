@@ -1,19 +1,21 @@
 preprocess_10X_data <- function(
     project.loc,
-    seed.use = 20241011, min.pc, bk.list = NULL, vars.to.regress = "percent.mito",
+    species = "human",
+    seed.use, min.pc, bk.list = NULL, vars.to.regress = "percent.mito",
     exclude_HTOs = NULL, save.loc = project.loc, dry_run = TRUE,
     overwrite = FALSE, parallel = FALSE, workers = 4, 
     steps = list(decontX = FALSE, normalise = FALSE, demux = FALSE,
                  filtering_singlets = FALSE, cluster_qc = FALSE)
 ) {
-
-    # large function, basically includes run_decontX, run_scaterQC, prep_HTODemux, plot_HTODemux, find_clusters_to_remove
+  
+  # large function, basically includes run_decontX, run_scaterQC, prep_HTODemux, plot_HTODemux, find_clusters_to_remove
   
   # --- load packages --------------------------------------------------------------------- 
   setwd(project.loc)
   suppressPackageStartupMessages({
     library(BiocParallel)
     library(here)
+    library(SeuratExtend)
   })
   source(here("0_pipeline_setup.R"))
   set.seed(seed.use)
@@ -23,7 +25,7 @@ preprocess_10X_data <- function(
   message("[INFO] Obtaining capture/sample_name from named vector `folderName`")
   if (all(names(raw.list) == names(filt.list))) {
     capture <- names(raw.list)
-    message("Procesing captures: ", paste0(capture, collapse = ","))
+    message("Processing captures: ", paste0(capture, collapse = ","))
   } else {
     stop("`raw.list` and `filt.list` must be named and must be in the same order")
   }
@@ -65,10 +67,18 @@ preprocess_10X_data <- function(
       sce <- readRDS(here(save.loc, "1_decontX", "int_obj", paste0(capture[i], ".RNA_decontX_sce.rds")))
       get_cell_counts(data = sce, sample_name = capture[i], stage = "Filtered GEX matrix", save.loc = save.loc) # cell counts
       
-      run_scaterQC(
+      if(species == "human") {
+        mito_genes <- scGate::genes.blacklist.default$Hs$Mito 
+      } else if(species == "mouse") {
+        mito_genes <- scGate::genes.blacklist.default$Mm$Mito
+      } else {
+        stop("Human or mouse `mito_genes` only.")
+      }
+      
+      sce_filt <- run_scaterQC(
         sce = sce,
         nmads = c(low = 2, high = 3),
-        mito_genes = scGate::genes.blacklist.default$Hs$Mito,
+        mito_genes = mito_genes,
         sample_name = capture[i],
         save.loc = here(save.loc, "2_QC"),
         plot.width = 12,
@@ -76,25 +86,44 @@ preprocess_10X_data <- function(
         min.cells = 3,
         dry_run = dry_run
       )
+      get_cell_counts(data = sce_filt, sample_name = capture[i], stage = "Remove library outliers", save.loc = save.loc) # cell counts
       
+      # read in preprocessed object
       seu <- readRDS(here(save.loc, "2_QC", "int_obj", paste0(capture[i],".preprocessed.seu.obj.rds")))
-      seu <- plot_CellCycleRegression(seu, sample_name = capture[i], ccgenes = Seurat::cc.genes.updated.2019, save.loc = here(save.loc,"2_QC"), npcs = 50)
-      regress_genes <- list(
-        Ribo = unname(unlist(scGate::genes.blacklist.default$Hs$Ribo)),
-        TCR = unname(unlist(scGate::genes.blacklist.default$Hs$TCR)),
-        IG = grep("^IG[HLK]", rownames(seu), value = TRUE)
-      )
-      seu <- checkRegressGenes(seu, sample_name = capture[i], pca_npcs = 50, ccgenes = Seurat::cc.genes.updated.2019,
-                               regress_genes = regress_genes, label_genes = unlist(regress_genes), save.loc = here(save.loc,"2_QC"))
       
-      bk.list <- if (is.null(bk.list)) get_blacklist(seu) %>% unlist() else NULL
+      # get species specific cc genes
+      if(species == "mouse"){
+        ccgenes <- lapply(Seurat::cc.genes.updated.2019, function(genes) {
+          HumanToMouseGenesymbol(genes, keep.seq = TRUE) %>% unname %>% na.omit %>% as.vector
+        })
+      } else if (species == "human"){
+        ccgenes <- Seurat::cc.genes.updated.2019
+      }
       
+      message("[INFO] plot_CellCycleRegression...")
+      seu <- plot_CellCycleRegression(seu, sample_name = capture[i], ccgenes = ccgenes, save.loc = here(save.loc,"2_QC"), npcs = 50)
+      # regress_genes <- list(
+      #   Ribo = unname(unlist(scGate::genes.blacklist.default$Hs$Ribo)),
+      #   TCR = unname(unlist(scGate::genes.blacklist.default$Hs$TCR)),
+      #   IG = grep("^IG[HLK]", rownames(seu), value = TRUE)
+      # )
+      
+      message("[INFO] checkRegressGenes...")
+      regress_genes <- get_blacklist(seu, species = 'mouse', unlist=FALSE) 
+      regress_genes <- regress_genes[lengths(regress_genes) > 0]
+      seu <- checkRegressGenes(seu, sample_name = capture[i], pca_npcs = 50, ccgenes = ccgenes,
+                               regress_genes = regress_genes, label_genes = NULL, save.loc = here(save.loc,"2_QC"))
+      
+      # get species specific `bk.list` genes
+      bk.list <- if (is.null(bk.list)) get_blacklist(seu, species = species) %>% unlist() else NULL
+      
+      message("[INFO] normalizeAndScaleData...")
       seu <- normalizeAndScaleData(seu, dry_run = dry_run, sample_name = capture[i], min.pc = min.pc,
                                    seed.use = seed.use, save.loc = here(save.loc,"2_QC"),
                                    vars.to.regress = vars.to.regress, bk.list = bk.list, verbose = FALSE)
       return(seu)
-  }) %>% setNames(.,capture)
-
+    }) %>% setNames(.,capture)
+    
     # save objects
     lapply(seq_along(capture), function(i) {
       message("[INFO] save normalised objects...")
@@ -114,13 +143,13 @@ preprocess_10X_data <- function(
     message("[INFO] Running HTO demultiplexing...")
     so <- lapply(seq_along(capture), function(i) {
       if (all(names(exclude_HTOs) == capture)) {
-        message("Procesing capture(s): ", paste0(capture[i], collapse = ","))
+        message("Processing capture(s): ", paste0(capture[i], collapse = ","))
       } else {
         stop("`exclude_HTOs` must be named and must be in the same order as `capture`, or `names(raw.list)`")
       }
       
       seu <- prep_HTODemux(
-        so[[capture[i]]], filt.list[[i]], sample_name = capture[i], 
+        seu.obj = so[[capture[i]]], HTO.counts.path = filt.list[[i]], sample_name = capture[i], 
         HTO_AssayName = "HTO", RNA_AssayName = "RNA", 
         exclude_samples = exclude_HTOs[[i]], demux = TRUE
       )
@@ -213,7 +242,7 @@ preprocess_10X_data <- function(
     so <- lapply(seq_along(capture), function(i) {
       message("[INFO] ", so[[capture[i]]]@project.name, " clustering analysis...")
       seu <- so[[capture[i]]]
-      bk.list <- get_blacklist(seu) %>% unlist
+      bk.list <- get_blacklist(seu, species = species) %>% unlist
       seu <- find_clusters_to_remove(
         seu, capture = capture[i], assay = "RNA",
         reduction = "pca", reduction.name = "umap", npcs = min.pc,

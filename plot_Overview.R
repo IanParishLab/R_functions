@@ -15,15 +15,15 @@ plot_Overview <- function(seu.obj, reduction.name = "umap.scvi", ident = "Patien
   dir.create(file.path(save.loc, "plots"), showWarnings = FALSE, recursive = TRUE)
   
   # get color palette if not provided
-  if (is.null(capture_col) && exists("capture_col", envir = .GlobalEnv)) {
-    capture_col <- get("capture_col", envir = .GlobalEnv)
-  }
+  # if (is.null(capture_col) && exists("capture_col", envir = .GlobalEnv)) {
+  #   capture_col <- get("capture_col", envir = .GlobalEnv)
+  # }
   if (is.null(cluster_col) && exists("cluster_col", envir = .GlobalEnv)) {
     cluster_col <- get("cluster_col", envir = .GlobalEnv)
   }
-  if (is.null(HTO_col) && exists("HTO_col", envir = .GlobalEnv)) {
-    HTO_col <- get("HTO_col", envir = .GlobalEnv)
-  }
+  # if (is.null(HTO_col) && exists("HTO_col", envir = .GlobalEnv)) {
+  #   HTO_col <- get("HTO_col", envir = .GlobalEnv)
+  # }
   
   # Shared theme
   theme <- theme(aspect.ratio = 1, 

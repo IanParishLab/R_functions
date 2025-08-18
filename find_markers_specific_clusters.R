@@ -12,7 +12,6 @@ find_markers_specific_clusters <- function(seu_path,
   
   require(Seurat)
   require(tidyverse)
-  # require(SeuratDisk)
   
   ################ tmp ################ 
   # seu_path="/researchers/nicole.saw/projects/Sinead_Reading/R/ikzf_filt1-customPeakList-chromVAR.rds"
@@ -30,7 +29,7 @@ find_markers_specific_clusters <- function(seu_path,
   # setup #
   object_name <- deframe(strsplit(seu_path,"/"))[length(deframe(strsplit(seu_path,"/")))]
   object_name <- gsub(".rds","",object_name)
-  output_name <- paste0(c(object_name,assay,test.use),collapse=".")
+  output_name <- paste0(c(object_name,assay,test.use,group.by),collapse=".")
   # end setup #
   
   # check if saveDir exists
@@ -44,27 +43,25 @@ find_markers_specific_clusters <- function(seu_path,
   
   # set seurat object default assay and identity to use
   message("[MSG] Default assay: ", assay, ", Idents: ", group.by)
+  # setting Idents and print clusters analysed
   DefaultAssay(so) <- assay
-  
+  Idents(so) <- group.by
   # if SCT assay is used run this
   if(DefaultAssay(so) == "SCT"){
     so <- PrepSCTFindMarkers(so, assay = "SCT", verbose = FALSE)
   }
   
-  # setting Idents and print clusters analysed
-  Idents(so) <- group.by
-  
   # if specific clusters only
-  message("[MSG] run FindMarkers with clusters ",idents.1," and ",idents.2,", with logfc.threshold = 0, and min.pct = 0, and test.use = ", test.use)
+  message("[MSG] run FindMarkers with clusters ",paste0(idents.1, collapse = ",")," and ",paste0(idents.2, collapse = ","),", with logfc.threshold = 0, and min.pct = 0, and test.use = ", test.use)
   
   find_markers <- FindMarkers(so, 
                               ident.1 = idents.1, ident.2 = idents.2,
-                                assay = assay, 
-                                logfc.threshold = 0, 
-                                min.pct = 0, 
-                                test.use = test.use, 
-                                latent.vars = latent.vars)
-
+                              assay = assay, 
+                              logfc.threshold = 0, 
+                              min.pct = 0, 
+                              test.use = test.use, 
+                              latent.vars = latent.vars)
+  
   find_markers$cluster_1 <- ifelse(length(idents.1) > 1, paste0(idents.1, collapse = "_"),idents.1)
   find_markers$cluster_2 <- ifelse(length(idents.2) > 1, paste0(idents.2, collapse = "_"),idents.2)
   find_markers$gene <- rownames(find_markers)
@@ -86,7 +83,7 @@ find_markers_specific_clusters <- function(seu_path,
   } else {
     
     message("[MSG] saving FindMarkers results in ",output_name,"...")
-    saveRDS(FindMarkers.so ,paste0(save.loc,"FindMarkers.",output_name,".",idents.1,"_",paste0(idents.2, collapse = "_"),".rds"))
+    saveRDS(find_markers ,paste0(save.loc,"FindMarkers.",output_name,".",idents.1,"_",paste0(idents.2, collapse = "_"),".rds"))
     
   }
 }

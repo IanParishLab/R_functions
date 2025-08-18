@@ -1,6 +1,6 @@
 run_scaterQC <- function(
     sce, 
-    mito_genes = scGate::genes.blacklist.default$Mm$Mito,
+    mito_genes,
     sample_name,
     nmads = c(low = 2, high = 3),
     save.loc = "QC",
@@ -23,7 +23,6 @@ run_scaterQC <- function(
   })
   
   # Make output directory
-  dir.create(file.path(save.loc, "metrics"), showWarnings = FALSE, recursive = TRUE)
   dir.create(file.path(save.loc, "int_obj"), showWarnings = FALSE, recursive = TRUE)
   dir.create(file.path(save.loc, "plots"), showWarnings = FALSE, recursive = TRUE)
   
@@ -75,28 +74,26 @@ run_scaterQC <- function(
   
   # Filter cells and genes
   message("[MSG] Filtering mito genes and discarded cells...")
-  sce <- sce[!is_mito, !sce$discard]
-  
-  # Detect doublets
-  message("[MSG] Running scDblFinder...")
-  sce <- sce %>%
+  sce_filt <- sce[!is_mito, !sce$discard] %>% 
     logNormCounts() %>%
     runPCA() %>%
     runUMAP()
-  sce <- scDblFinder(sce, clusters = clusters, samples = samples)
+  # Detect doublets
+  message("[MSG] Running scDblFinder...")
+  sce_filt <- scDblFinder(sce_filt, clusters = clusters, samples = samples)
   
   p4_postfilter <- plot_grid(
-    plotColData(sce, y = "sum", x = "sample", colour_by = "scDblFinder.class", shape_by = "scDblFinder.class") +
+    plotColData(sce_filt, y = "sum", x = "sample", colour_by = "scDblFinder.class", shape_by = "scDblFinder.class") +
       scale_y_log10() + annotation_logticks(sides = "l") + qc_theme,
-    plotColData(sce, y = "detected", x = "sample", colour_by = "scDblFinder.class", shape_by = "scDblFinder.class") + qc_theme,
-    plotColData(sce, y = "subsets_mito_percent", x = "sample", colour_by = "scDblFinder.class", shape_by = "scDblFinder.class") + qc_theme,
-    plotColData(sce, y = "zero_pct", x = "sample", colour_by = "scDblFinder.class", shape_by = "scDblFinder.class") + qc_theme,
+    plotColData(sce_filt, y = "detected", x = "sample", colour_by = "scDblFinder.class", shape_by = "scDblFinder.class") + qc_theme,
+    plotColData(sce_filt, y = "subsets_mito_percent", x = "sample", colour_by = "scDblFinder.class", shape_by = "scDblFinder.class") + qc_theme,
+    plotColData(sce_filt, y = "zero_pct", x = "sample", colour_by = "scDblFinder.class", shape_by = "scDblFinder.class") + qc_theme,
     ncol = 4
   ) + labs(title = "Post-filter")
   
   p5_scDblFinder <- plot_grid(
-    plotColData(sce, y = "scDblFinder.score", x = "sample", colour_by = "scDblFinder.class", shape_by = "scDblFinder.class") + qc_theme,
-    plotUMAP(sce, colour_by = "scDblFinder.class"),
+    plotColData(sce_filt, y = "scDblFinder.score", x = "sample", colour_by = "scDblFinder.class", shape_by = "scDblFinder.class") + qc_theme,
+    plotUMAP(sce_filt, colour_by = "scDblFinder.class"),
     ncol = 2
   ) + labs(title = "scDblFinder")
   
@@ -113,13 +110,13 @@ run_scaterQC <- function(
   
   # Convert to Seurat and save
   message("[MSG] Converting to Seurat object...")
-  seu.obj <- CreateSeuratObject(counts(sce),
-                                meta.data = as.data.frame(colData(sce)),
+  seu.obj <- CreateSeuratObject(counts(sce_filt),
+                                meta.data = as.data.frame(colData(sce_filt)),
                                 min.cells = min.cells,
                                 project = sample_name)
   
   saveRDS(seu.obj, file.path(save.loc, "int_obj", paste0(seu.obj@project.name, ".preprocessed.seu.obj.rds")))
   
   # Return object
-  return(if (dry_run) sce_dry_run else sce)
+  return(if (dry_run) sce_dry_run else sce_filt)
 }

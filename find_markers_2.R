@@ -38,7 +38,7 @@ find_markers <- function(seu_path,
   # start setup #
   object_name <- deframe(strsplit(seu_path,"/"))[length(deframe(strsplit(seu_path,"/")))]
   object_name <- gsub(".rds","",object_name)
-  output_name <- paste0(c(object_name,assay,test.use),collapse=".")
+  output_name <- paste0(c(object_name,assay,test.use,group.by),collapse=".")
   
   # make output directory
   dir.create(save.loc, showWarnings = FALSE, recursive = TRUE)
@@ -57,7 +57,6 @@ find_markers <- function(seu_path,
   message("[MSG] Default assay: ", assay, ", Idents: ", group.by)
   DefaultAssay(so) <- assay
   Idents(so) <- group.by
-  
   # if SCT assay is used run this
   if(DefaultAssay(so) == "SCT"){
     so <- PrepSCTFindMarkers(so, assay = "SCT", verbose = FALSE)

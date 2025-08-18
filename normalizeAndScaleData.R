@@ -1,4 +1,5 @@
 normalizeAndScaleData <- function(seu.obj,
+                                  assay = "RNA",
                                   sample_name,
                                   min.pc,
                                   seed.use,
@@ -19,7 +20,7 @@ normalizeAndScaleData <- function(seu.obj,
   dir.create(file.path(save.loc, "plots"), showWarnings = FALSE, recursive = TRUE)
   
   message("[MSG] Setting default assay to RNA and starting normalization...")
-  DefaultAssay(seu.obj) <- "RNA"
+  DefaultAssay(seu.obj) <- assay
   
   seu.obj <- NormalizeData(object = seu.obj, verbose = verbose)
   seu.obj <- FindVariableFeatures(object = seu.obj, verbose = verbose)

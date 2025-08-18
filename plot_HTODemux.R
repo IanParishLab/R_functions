@@ -5,6 +5,7 @@ plot_HTODemux <- function(seu.obj,
                           RNA_AssayName = "RNA", 
                           hash_class_column = "HTO_classification.global", 
                           hash.ident = "HTO_maxID",
+                          cols = NULL,
                           ncol = 4, nrow = 3,
                           plot.width = 12, plot.height = 6){
   
@@ -47,7 +48,8 @@ plot_HTODemux <- function(seu.obj,
   ridge_plot <- RidgePlot(seu.obj, 
                           assay = HTO_AssayName, 
                           features = rownames(seu.obj[[HTO_AssayName]]),
-                          ncol = ncol) &
+                          ncol = ncol,
+                          cols = cols) &
     theme(title = element_text(size = 7), 
           text = element_text(size = 7), 
           axis.text = element_text(size = 7))
@@ -56,7 +58,8 @@ plot_HTODemux <- function(seu.obj,
   for (j in 2:length(rownames(seu.obj))){
     p[[j]] <- FeatureScatter(seu.obj, 
                              feature1 = rownames(seu.obj[[HTO_AssayName]])[1], 
-                             feature2 = rownames(seu.obj[[HTO_AssayName]])[j]) &
+                             feature2 = rownames(seu.obj[[HTO_AssayName]])[j],
+                             cols = cols) &
       NoLegend() &
       theme(aspect.ratio=1,
             title = element_text(size = 7), 
@@ -81,7 +84,5 @@ plot_HTODemux <- function(seu.obj,
   ft_scatter %>% print
   vln %>% print
   dev.off()
-  
-  return(seu.obj)
   
 }

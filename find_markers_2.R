@@ -6,8 +6,8 @@ find_markers <- function(seu_path,
                          max.cells.per.ident = Inf, 
                          logfc.threshold = 0.125, 
                          min.pct = 0.05,
-                         test.use = "LR",
-                         latent.vars = paste0("nCount_",assay),
+                         test.use = "wilcox",
+                         latent.vars = NULL,
                          save.loc="find_markers",
                          run_FindAllMarkers = TRUE,
                          run_FindMarkers = TRUE,
@@ -51,7 +51,11 @@ find_markers <- function(seu_path,
   
   # read Seurat object
   message("[MSG] reading in Seurat object from ", seu_path)
-  so <- readRDS(seu_path)
+  ext <- tools::file_ext(seu_path)
+  so <- switch(tolower(ext),
+               "qs"  = qs2::qs_read(seu_path),
+               "rds" = readRDS(seu_path),
+               stop("[ERR] Unsupported file format: ", ext))
   
   # set Seurat object default assay and identity to use
   message("[MSG] Default assay: ", assay, ", Idents: ", group.by)

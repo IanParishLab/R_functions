@@ -13,11 +13,6 @@ run_fgsea <- function(geneListDF, refGMT, readGMT = TRUE, seed.use,
   
   set.seed(seed.use)
   
-  # cluster_column = "ClusterNames"
-  # logfc_column = "avg_log2FC"
-  # gene_column = "gene"
-  # refGMT = gn
-  
   if(readGMT == TRUE) {
     refGMT <- gmtPathways(refGMT)
   } else {
@@ -43,24 +38,23 @@ run_fgsea <- function(geneListDF, refGMT, readGMT = TRUE, seed.use,
     ranks[[j]] <- ranks[[j]][which(!is.na(ranks[[j]]))]
     
     res[[j]] <- fgseaMultilevel(pathways = refGMT, stats = ranks[[j]], nPermSimple = nPerms, nproc = 1)
-    res[[j]]$cluster <- j
+    res[[j]][[cluster_column]] <- j
   }
   res_1 <-  plyr::rbind.fill(res)
   
-  for(i in 1:nrow(res_1)){
-    res_1$leadingEdge[i] <- paste0(unlist(res_1$leadingEdge[i]), collapse = ",")
-  }
-  
+  # for(i in 1:nrow(res_1)){
+  #   res_1$leadingEdge[i] <- paste0(unlist(res_1$leadingEdge[i]), collapse = ",")
+  # }
+
   # print plot  
-  
   if(plot_fgsea_res == TRUE){
-    p <- ggplot(res_1, aes(x = cluster, y = pathway)) +
+    p <- ggplot(res_1, aes(x = !!as.name(cluster_column), y = pathway)) +
       geom_point(aes(color = NES, size = -log(pval)), alpha = 0.7) +
       scale_colour_gradientn(colours = c("blue", "blue","white","red","red", "red"), oob = scales::squish) +
       scale_size(range = c(1, 10)) +
       theme_minimal() +
       theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
-      scale_x_discrete(limits=c("", unique_clusters))
+      scale_x_discrete(limits = c("", unique_clusters))
     print(p)
   }
   

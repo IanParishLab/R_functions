@@ -36,7 +36,7 @@ dir.create(file.path(save.loc, "plots"), showWarnings = FALSE, recursive = TRUE)
 
   pred_pl <- pred_pl[sort(cell_types)]
 
-  pdf_path <- file.path(plot_dir, paste0(save_name, "_", ident, ".pdf"))
+  pdf_path <- file.path(save.loc, "plots", paste0(save_name, "_", ident, ".pdf"))
   message("[MSG] Saving Azimuth plots to: ", pdf_path)
   pdf(pdf_path, width = 10, height = 4)
   print(pred_pl)

@@ -1,3 +1,12 @@
+# --- load_so_from_stage function  ------------------------------------------------------------- 
+load_so_from_stage <- function(capture, stage, save.loc, pattern) {
+  message("[INFO] Loading Seurat objects from: ", stage)
+  lapply(capture, function(name) {
+    readRDS(here(save.loc, stage, "int_obj", paste(c(name, pattern, "rds"), collapse = ".")))
+  }) %>% setNames(., capture)
+}
+
+# --- preprocess_10X_data function  ------------------------------------------------------------- 
 preprocess_10X_data <- function(
     project.loc,
     species = "human",
@@ -16,6 +25,7 @@ preprocess_10X_data <- function(
     library(BiocParallel)
     library(here)
     library(SeuratExtend)
+    library(qs2)
   })
   source(here("0_pipeline_setup.R"))
   set.seed(seed.use)

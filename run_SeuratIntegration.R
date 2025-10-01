@@ -16,10 +16,10 @@ run_SeuratIntegration <- function(seu.obj.list, merged.seu.obj.name, min.pc, see
   dir.create(file.path(save.loc), showWarnings = FALSE, recursive = TRUE)
 
   # get color palette if not provided
-  if (is.null(capture_col) && exists("capture_col", envir = .GlobalEnv)) {
+  if (exists("capture_col", envir = .GlobalEnv)) {
     capture_col <- get("capture_col", envir = .GlobalEnv)
   }
-  if (is.null(HTO_col) && exists("HTO_col", envir = .GlobalEnv)) {
+  if (exists("HTO_col", envir = .GlobalEnv)) {
     HTO_col <- get("HTO_col", envir = .GlobalEnv)
   }
   

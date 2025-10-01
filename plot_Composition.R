@@ -3,7 +3,7 @@ plot_Composition <- function(seu.obj, ident = "PatientID", res = "seuratClusters
                              save.loc = "plots", plot.name = "test",
                              cluster_col, HTO_col,
                              plot.width = 8, plot.height = 8, ncol = 3, nrow = 2,
-                             print = FALSE) {
+                             print = FALSE,...) {
   
   suppressPackageStartupMessages({
     require(dittoSeq)

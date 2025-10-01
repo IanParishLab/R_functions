@@ -4,7 +4,7 @@ run_ProjecTILs <- function(
   classifier_mode = TRUE,
   save.loc,
   query_assay = "RNA",
-  split_by = "sampleSource",
+  split_by,
   reduction = "pca",
   k = 20,
   filter_cell = TRUE,

@@ -327,16 +327,15 @@ get_max_clus <- function(seu.obj) { unique(seu.obj$seuratClusters) %>% levels() 
 
 # --- plot_perCluster function -------------------------------------------------------------
 plot_perCluster <- function(seu.obj, clusters, ident = "seuratClusters", reduction = 'umap', cluster_col,
-                            ncol, nrow, width = 12, height = 10, save.loc, print = FALSE) {
+                            ncol, nrow, width = 12, height = 10, save.loc, print = FALSE, ...) {
   Idents(seu.obj) <- ident
   plot <- lapply(as.character(clusters), function(i) {
     DimPlot(seu.obj, 
             group.by = ident, 
             reduction = reduction, 
-            alpha = 0.4,
             cells.highlight = WhichCells(seu.obj, idents = i), 
             cols.highlight = cluster_col[i], 
-            order = TRUE, repel = TRUE, raster = FALSE) + 
+            order = TRUE, repel = TRUE, raster = FALSE, ...) + 
       NoLegend() + NoAxes() + ggtitle(i) + 
       theme(aspect.ratio = 1, title = element_text(size = 7), text = element_text(size = 7))
   }) %>% 

@@ -1,5 +1,6 @@
 run_enrichGO <- function(markers, split.by = "cluster", gene.col = "gene", rm_gn = NULL, direction = "both", 
-                         p.value.col = "p_val_adj", p.value.threshold = 0.05, logfc.col = "avg_log2FC", logfc.threshold = 0,
+                         p.value.col = "p_val_adj", p.value.threshold = 0.05, 
+                         logfc.col = "avg_log2FC", logfc.threshold = 0,
                          res.name = "DEMethod.projectName.assayName.DETest", organism, save.loc){
   library(clusterProfiler)
   library(enrichplot)
@@ -44,6 +45,7 @@ run_enrichGO <- function(markers, split.by = "cluster", gene.col = "gene", rm_gn
                       qvalueCutoff = 0.05, 
                       pool = TRUE)
       ego <- data.frame(ego)
+      
       if(nrow(ego)!=0){
         
         if (!is.null(split.by)){

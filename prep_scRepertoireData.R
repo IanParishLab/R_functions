@@ -3,11 +3,14 @@ prep_scRepertoireData <- function(seu.obj, contigs, sample_names = NULL,
                                   seu.obj.ident = "PatientID", hash.ident = "sampleSource",
                                   # cloneTypes = c(Single=1, Small=5, Medium=20, Large=50, Larger=100, Hyperexpanded = 1000),
                                   cloneTypes = c(Rare = 1e-04, Small = 0.001, Medium = 0.01, Large = 0.05, Hyperexpanded = 1),
-                                  Tcell.type = "T-AB", save.name = "renamed", save.loc){
+                                  Tcell.type = "T-AB", sample_name = "renamed", save.loc, ...){
   
-  library(scRepertoire)
-  library(Seurat)
-  library(tidyverse)
+  suppressPackageStartupMessages({
+    library(scRepertoire)
+    library(Seurat)
+    library(tidyverse)
+    library(qs2)
+  })
   
   # # test parameters
   # seu.obj = scvi
@@ -17,7 +20,7 @@ prep_scRepertoireData <- function(seu.obj, contigs, sample_names = NULL,
   # hash.ident = "sampleSource"
   # cloneTypes = cloneTypes
   # Tcell.type = "T-AB"
-  # save.name = save.name
+  # sample_name = sample_name
   # save.loc = save.loc
   # # end test parameters
   
@@ -42,7 +45,7 @@ prep_scRepertoireData <- function(seu.obj, contigs, sample_names = NULL,
                  " common GEX barcodes in TCR data..."))
   }
   contigs_all <- plyr::rbind.fill(contigs)
-  saveRDS(contigs_all, file.path(save.loc, paste0(save.name, ".processed.filtered_contig_annotations.rds")))
+  saveRDS(contigs_all, file.path(save.loc, "int_obj", paste0(sample_name, ".processed.filtered_contig_annotations.rds")))
   
   # Create HTO contig list
   if(length(seu.obj) > 1){
@@ -78,18 +81,24 @@ prep_scRepertoireData <- function(seu.obj, contigs, sample_names = NULL,
                                         cloneCall = "strict", 
                                         cloneSize = cloneTypes,
                                         group.by = "sample",
-                                        proportion = TRUE,
                                         #filterNA = TRUE,
-                                        addLabel = TRUE
+                                        addLabel = TRUE,
+                                        ...
   )
   print("`cloneSize`:")
   table(combined_seu.obj$cloneSize) %>% print
   # range(combined_seu.obj$Frequency[which(combined_seu.obj$cloneType == "Small (0.001 < X <= 0.005) ")])
-  saveRDS(combined_seu.obj, file.path(save.loc, paste0(save.name,".combineExpression.",Tcell.type,".rds")))
   
+  # # annotate MAIT, iNKT
+  # combined_seu.obj <- annotateInvariant(input.data = combined_seu.obj, type = "MAIT", species = "human")
+  # combined_seu.obj <- annotateInvariant(input.data = combined_seu.obj, type = "iNKT", species = "human")
+  
+  # qs_save(combined_seu.obj, file.path(save.loc, "int_obj", paste0(sample_name,".combineExpression.",Tcell.type,".qs")))
+
   # extract important metadata to add to the seu.obj
   add_this_metadata <- combined_seu.obj@meta.data %>% select(contigCellBarcode:cloneSize)
   rownames(add_this_metadata) <- combined_seu.obj@meta.data$cellBarcode
   
+  qs_save(add_this_metadata, file.path(save.loc, "int_obj", paste0(sample_name,".combineExpression.",Tcell.type,".metadata.qs")))
   return(add_this_metadata)
 }

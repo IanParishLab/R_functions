@@ -21,7 +21,6 @@ run_ProjecTILs <- function(
   
   # Create output directory
   dir.create(file.path(save.loc), showWarnings = FALSE, recursive = TRUE)
-
   
   message("[MSG] Loading reference and query objects...")
   ref <- readRDS(ref_path)

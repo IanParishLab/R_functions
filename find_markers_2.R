@@ -36,9 +36,19 @@ find_markers <- function(seu_path,
   ################ tmp ################ 
   
   # start setup #
-  object_name <- deframe(strsplit(seu_path,"/"))[length(deframe(strsplit(seu_path,"/")))]
-  object_name <- gsub(".rds","",object_name)
-  output_name <- paste0(c(object_name,assay,test.use,group.by),collapse=".")
+    
+  if (isTRUE(grepl("qs",seu_path))) {
+    so <- qs2::qs_read(seu_path)
+    object_name <- deframe(strsplit(seu_path,"/"))[length(deframe(strsplit(seu_path,"/")))]
+    object_name <- gsub(".qs","",object_name)
+    output_name <- paste0(c(object_name,assay,test.use,group.by),collapse=".")
+    
+  } else if (isTRUE(grepl("rds",seu_path))) {
+    so <- readRDS(seu_path)
+    object_name <- deframe(strsplit(seu_path,"/"))[length(deframe(strsplit(seu_path,"/")))]
+    object_name <- gsub(".rds","",object_name)
+    output_name <- paste0(c(object_name,assay,test.use,group.by),collapse=".")
+  } 
   
   # make output directory
   dir.create(save.loc, showWarnings = FALSE, recursive = TRUE)

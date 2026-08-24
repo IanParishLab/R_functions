@@ -1,15 +1,19 @@
-run_scGate <- function(seu.obj, models.list, bk.list, min.cells, seed.use, 
+run_scGate <- function(seu.obj, models.list, reduction = 'pca', bk.list, min.cells, seed.use, 
                        gsub_pattern = paste0(names(models.list),"_", collapse = "|"), 
-                       name, save.loc, save.name, gate_cell_col = NULL, gate_model_col = NULL){
+                       name, save.loc, save.name, gate_cell_col = NULL, gate_model_col = NULL, ...){
   
   suppressPackageStartupMessages({
     library(scGate)
     library(RColorBrewer)
     library(ggpubr)
+    library(stringr)
   })
   
+  # # ontology dictionary:
+  # # https://github.com/carmonalab/scGate_models/blob/master/CellOntology_dictionary.tsv#L20
+  
   # make output directory
-   dir.create(file.path(save.loc, "int_obj"), showWarnings = FALSE, recursive = TRUE)
+  dir.create(file.path(save.loc, "int_obj"), showWarnings = FALSE, recursive = TRUE)
   dir.create(file.path(save.loc, "plots"), showWarnings = FALSE, recursive = TRUE)
   
   # use scGate
@@ -21,8 +25,8 @@ run_scGate <- function(seu.obj, models.list, bk.list, min.cells, seed.use,
       seu.obj@meta.data["scGate_multi"] <- NULL
     }
     
-    seu.obj <- scGate(seu.obj, model = models.list[[i]], reduction = 'pca', keep.ranks = FALSE, save.levels = FALSE, 
-                      genes.blacklist = bk.list, min.cells = min.cells, seed = seed.use)
+    seu.obj <- scGate(seu.obj, model = models.list[[i]], reduction = reduction, keep.ranks = FALSE, save.levels = FALSE, 
+                      genes.blacklist = bk.list, min.cells = min.cells, seed = seed.use, ...)
     seu.obj[[names(models.list)[i]]] <- seu.obj$scGate_multi
   }
   
@@ -110,7 +114,8 @@ run_scGate <- function(seu.obj, models.list, bk.list, min.cells, seed.use,
                  cols = gate_model_col) %>% get_legend %>% as_ggplot
   
   # save plot & legends
-  pdf(file.path(save.loc,"plots",paste0(save.name,".scGate_models.list.result.pdf")),height = 10, width = 6)
+  png(file.path(save.loc,"plots",paste0(save.name,".scGate_models.list.result.png")), 
+      height = 10, width = 6, units = "in", res = 300)
   print(plot)
   print(lgd1 | lgd2)
   dev.off()

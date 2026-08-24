@@ -61,13 +61,14 @@ plot_Composition <- function(seu.obj, ident = "PatientID", res = "seuratClusters
     cluster_composition_superset <- make_composition(other.hash.ident, res, cluster_col, HTO_col)
   }
   
-  pdf(file.path(save.loc, "plots", paste0(plot.name, ".plotComposition.pdf")), width = plot.width, height = plot.height)
+  png(file.path(save.loc, "plots", paste0(plot.name, ".plotComposition.png")), width = plot.width, height = plot.height,
+      units = "in", res = 300)
   print(cluster_composition)
-  if (!is.null(other.hash.ident)) print(cluster_composition_superset)
+  if (!is.null(other.hash.ident)) print(cluster_composition|cluster_composition_superset)
   dev.off()
   
   if (isTRUE(print)) {
     message("Print plot...")
-    return(if (!is.null(other.hash.ident)) cluster_composition_superset else cluster_composition)
+    return(if (!is.null(other.hash.ident)) (cluster_composition | cluster_composition_superset) else cluster_composition)
   }
 }

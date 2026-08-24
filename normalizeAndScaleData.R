@@ -32,12 +32,12 @@ normalizeAndScaleData <- function(seu.obj,
 
   message("[MSG] Scaling data and running PCA...")
   seu.obj <- ScaleData(seu.obj, vars.to.regress = vars.to.regress, verbose = verbose, ...)
-  seu.obj <- RunPCA(seu.obj, npcs = 50, verbose = verbose)
+  seu.obj <- RunPCA(seu.obj, verbose = verbose)
 
   # Save ElbowPlot
   elbow_path <- file.path(save.loc, "plots", paste0(sample_name, ".ElbowPlot.pdf", collapse = "_"))
   message("[MSG] Saving ElbowPlot to: ", elbow_path)
-  ggsave(ElbowPlot(seu.obj, ndims = 50), filename = elbow_path, device = "pdf", width = 5, height = 5)
+  ggsave(Seurat::ElbowPlot(seu.obj), filename = elbow_path, device = "pdf", width = 5, height = 5)
 
   if (isFALSE(dry_run)) {
     message("[MSG] Running UMAP, neighbor graph, and clustering...")

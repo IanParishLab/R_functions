@@ -9,7 +9,9 @@ run_scaterQC <- function(
     min.cells = 1,
     clusters = NULL, 
     samples = NULL,
-    dry_run = TRUE
+    dry_run = TRUE,
+    
+    use_decontX=TRUE
 ) {
   suppressPackageStartupMessages({
     library(celda)
@@ -27,30 +29,47 @@ run_scaterQC <- function(
   dir.create(file.path(save.loc, "plots"), showWarnings = FALSE, recursive = TRUE)
   
   # Backup raw counts
-  assay(sce, "raw_counts") <- counts(sce)
-  counts(sce) <- decontXcounts(sce)
+  
+  if(isTRUE(use_decontX)){
+    assay(sce, "raw_counts") <- counts(sce)
+    counts(sce) <- decontXcounts(sce)
+  } 
   
   # Add per-cell QC metrics
   message("[MSG] Adding QC metrics...")
   is_mito <- rownames(sce) %in% mito_genes
   sce <- addPerCellQCMetrics(sce, subsets = list(mito = is_mito))
   
-  # Flag outliers
-  sce$low_lib_size <- isOutlier(sce$sum, nmads = nmads["low"], type = "lower")
-  sce$high_lib_size <- isOutlier(sce$sum, nmads = nmads["high"], type = "higher")
-  sce$lib_size <- sce$low_lib_size | sce$high_lib_size
-  sce$low_n_features <- isOutlier(sce$detected, nmads = nmads["low"], type = "lower")
-  sce$high_n_features <- isOutlier(sce$detected, nmads = nmads["high"], type = "higher")
-  sce$n_features <- sce$low_n_features | sce$high_n_features
-  sce$high_subsets_mito_percent <- isOutlier(sce$subsets_mito_percent, nmads = nmads["high"], type = "higher")
-  sce$discard <- sce$lib_size | sce$n_features | sce$high_subsets_mito_percent
+  # 2. Use the wrapper for the "standard" filters
+  # This automatically uses log=TRUE for sum/detected and log=FALSE for mito
+  qc_filters <- perCellQCFilters(
+    sce, 
+    sub.fields = "subsets_mito_percent",
+    nmads = nmads["low"] # Standardizing on your 'low' threshold for these
+  )
+  
+  # 3. Map the wrapper results back to your custom columns
+  sce$low_lib_size <- qc_filters$low_lib_size
+  sce$low_n_features <- qc_filters$low_n_features
+  sce$high_subsets_mito_percent <- qc_filters$high_subsets_mito_percent
+  
+  # 4. Keep your manual 'high' checks (since the wrapper is usually symmetric)
+  sce$high_lib_size <- isOutlier(sce$sum, nmads = nmads["high"], type = "higher", log = TRUE)
+  sce$high_n_features <- isOutlier(sce$detected, nmads = nmads["high"], type = "higher", log = TRUE)
+  
+  sce$lib_size <- sce$low_lib_size|sce$high_lib_size
+  sce$n_features <- sce$low_n_features|sce$high_n_features
+  
+  sce$discard <- qc_filters$discard | sce$n_features | sce$lib_size 
+  
   sce$percent.mito <- sce$subsets_mito_percent
-  sce$zero_pct <- colMeans(counts(sce) == 0) * 100
+  sce$zero_pct <- (1 - (colSums(counts(sce) > 0) / nrow(sce))) * 100
   sce$sample <- sample_name
+  
   
   # Plot pre-filter QC
   message("[MSG] Generating QC plots...")
-  qc_theme <- theme(legend.position = "none", axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0))
+  qc_theme <- theme(legend.position = "none", axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1))
   
   p1_prefilter <- plot_grid(
     plotColData(sce, y = "sum", x = "sample", colour_by = "lib_size") +
@@ -115,7 +134,7 @@ run_scaterQC <- function(
                                 min.cells = min.cells,
                                 project = sample_name)
   
-  saveRDS(seu.obj, file.path(save.loc, "int_obj", paste0(seu.obj@project.name, ".preprocessed.seu.obj.rds")))
+  qs_save(seu.obj, file.path(save.loc, "int_obj", paste0(seu.obj@project.name, ".preprocessed.seu.obj.qs")))
   
   # Return object
   return(if (dry_run) sce_dry_run else sce_filt)

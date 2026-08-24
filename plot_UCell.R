@@ -1,7 +1,7 @@
 plot_UCell <- function(seu.obj, gn, reduction = "pca", reduction.name, cluster.ident, 
                        label = TRUE, alpha = 0.4, cluster_col = NULL,
-                       save.loc = "plots", plot.name, plot.width = 10, plot.height = 6,
-                       vln = FALSE, ncol = 4, raster = FALSE, print = FALSE){
+                       save.loc = "plots", plot.name, plot.width = length(gn)*3, plot.height = 6,
+                       vln = FALSE, ncol = length(gn), raster = FALSE, print = FALSE){
   suppressPackageStartupMessages({
     require(Seurat)
     require(UCell)
@@ -56,12 +56,13 @@ plot_UCell <- function(seu.obj, gn, reduction = "pca", reduction.name, cluster.i
   }
   
   # save plot
-  pdf(file.path(save.loc, "plots", paste0(plot.name, ".plotUCell.pdf")), width = plot.width, height = plot.height)
+  png(file.path(save.loc, "plots", paste0(plot.name, ".plotUCell.png")), width = plot.width, height = plot.height, units = "in", res = 300)
   print(fp)
+  dev.off()
+  
   if(isTRUE(vln)){
     print(vln_p)
   }
-  dev.off()
   
   return(seu.obj1)
 }

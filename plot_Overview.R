@@ -2,7 +2,27 @@ plot_Overview <- function(seu.obj, reduction.name = "umap.scvi", ident = "Patien
                           hash.ident = "sampleSource", other.hash.ident = NULL,
                           res = "RNA_snn_res.1", save.loc = "plots", plot.name = "",
                           HTO_col, capture_col, cluster_col, 
-                          plot.width = 12, plot.height = 10, ncol = 3, nrow = 3, raster = FALSE, print = FALSE) {
+                          plot.width = 20, plot.height = 10, ncol = 3, nrow = 3, raster = FALSE, print = FALSE) {
+  
+  
+  # seu.obj = tmp
+  # reduction.name = "umap"
+  # ident = "Capture"
+  # alpha = 0.4
+  # hash.ident = "sampleSource_simple"
+  # other.hash.ident = "sampleSourceSuperset_simple"
+  # res = "RNA_snn_res.1"
+  # save.loc = save.loc
+  # plot.name = obj_name
+  # HTO_col <- HTO_col_simple
+  # capture_col <- data_col
+  # # cluster_col
+  # plot.width = 8
+  # plot.height = 8
+  # ncol = 4
+  # nrow = 3
+  # raster = FALSE
+  # print = FALSE
   
   suppressPackageStartupMessages({
     require(Seurat)
@@ -98,8 +118,7 @@ plot_Overview <- function(seu.obj, reduction.name = "umap.scvi", ident = "Patien
   }
   
   # Save to PDF
-  pdf(file.path(save.loc, "plots", paste0(plot.name, ".plotOverview.pdf")), width = plot.width, height = plot.height)
-  print(p_plot)
-  print(cluster_plot)
+  png(file.path(save.loc, "plots", paste0(plot.name, ".plotOverview.png")), width = plot.width, height = plot.height, units = "in", res = 300)
+  print(p_plot | cluster_plot)
   dev.off()
 }

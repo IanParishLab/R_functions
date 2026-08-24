@@ -14,7 +14,9 @@ find_clusters_to_remove <- function(so,
                                     save.loc,
                                     verbose = FALSE,
                                     raster = TRUE,
-                                    seed.use) {
+                                    seed.use,
+                                    normalize = TRUE,
+                                    scale = TRUE,...) {
   
   suppressPackageStartupMessages({
     require(Seurat)
@@ -22,6 +24,7 @@ find_clusters_to_remove <- function(so,
     require(clustree)
     require(cowplot)
     require(scGate)
+    require(qs2)
   })
   
   # Create output directories if they don't exist
@@ -38,28 +41,33 @@ find_clusters_to_remove <- function(so,
   }
   
   # Normalization and scaling
-  if (assay == "RNA") {
-    so <- NormalizeData(so)
+  if (assay == "SCT") {
+    so <- SCTransform(so, vst.flavor = "v2", vars.to.regress = vars.to.regress, verbose = verbose, seed.use = seed.use)
+  } else {
+    if (isTRUE(normalize)) {
+      so <- NormalizeData(so)
+    }
+
     so <- FindVariableFeatures(so)
     VariableFeatures(so) <- setdiff(VariableFeatures(so), bk.list)
     if (!is.null(features)) {
       VariableFeatures(so) <- unique(c(VariableFeatures(so), features))
     }
-    so <- ScaleData(so, vars.to.regress = vars.to.regress)
-  } else if (assay == "integrated") {
-    so <- ScaleData(so, vars.to.regress = vars.to.regress)
-  } else if (assay == "SCT") {
-    so <- SCTransform(so, vst.flavor = "v2", vars.to.regress = vars.to.regress, verbose = verbose, seed.use = seed.use)
+
+    if (isTRUE(scale)) {
+      so <- ScaleData(so, vars.to.regress = vars.to.regress)
+    }
   }
-  
+
   # Dimensionality reduction
   so <- RunPCA(so, npcs = 50, verbose = verbose)
+  
   so <- RunUMAP(so, dims = 1:npcs, reduction = reduction, reduction.name = reduction.name, verbose = verbose, seed.use = seed.use)
   message("[MSG] reduction = ", reduction, "; reduction.name = ", reduction.name, "; seed.use = ", seed.use)
   
   # Clustering
   graph.name <- paste0(assay, "_snn")
-  so <- FindNeighbors(so, graph.name = graph.name, dims = 1:npcs, verbose = verbose)
+  so <- FindNeighbors(so, reduction = reduction, graph.name = graph.name, dims = 1:npcs, verbose = verbose, ...)
   for (res in resolutions) {
     so <- FindClusters(so, graph.name = graph.name, resolution = res, verbose = verbose)
   }
@@ -79,6 +87,9 @@ find_clusters_to_remove <- function(so,
   pdf(file.path(save.loc, "plots", paste0(prefix, "_", capture, "_clustree.pdf")), height = 12, width = 10)
   print(clustree(so, prefix = paste0(assay, "_snn_res.")))
   dev.off()
+  
+  df <- so@meta.data %>% select(starts_with("RNA_snn"))
+  qs_save(df, file.path(save.loc, "int_obj", paste0(prefix, "_", assay, "_", capture, "_clusters.qs")))
   
   return(so)
 }

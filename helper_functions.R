@@ -6,68 +6,9 @@ gg_color_hue <- function(n) {
 }
 cluster_col <- setNames(dittoSeq::dittoColors(1),seq(from=0,to=39))
 
-# --- get_max_clus function  ------------------------------------------------------------- 
-get_max_clus <- function(seu.obj,ident = 'seuratClusters') { unique(seu.obj[[ident]]) %>% levels() %>% as.numeric %>% max } 
-
-# --- get_blacklist function -------------------------------------------------------------
-get_blacklist <- function(seu, species = 'human', include_ribo = FALSE, unlist = TRUE) {
-  
-  # # include ribosomal genes and proteins in the blacklist?
-  # include_ribo <- if(grepl("CD8", save.loc)) FALSE else TRUE
-  
-  # Validate species
-  species <- tolower(species)
-  if (!species %in% c("human", "mouse")) {
-    stop("`species` must be either 'human' or 'mouse'")
-  }
-  
-  # Define regex for IG genes and ribosomal genes by species
-  ig_grep <- ifelse(species == "human", "^IG[HKL]", "^Ig[hlk]")
-  ribo_grep <- ifelse(species == "human", "^RP[SL]", "^Rp[sl]")  # RPS/RPL vs Rps/Rpl
-  
-  # Build blacklist components
-  blacklist <- list(
-    TCR = intersect(
-      rownames(seu), 
-      scGate::genes.blacklist.default[[ifelse(species == "human", "Hs", "Mm")]]$TCR
-    ),
-    Immunoglobulin = grep(ig_grep, rownames(seu), value = TRUE),
-    Ribosomal = if (include_ribo) grep(ribo_grep, rownames(seu), value = TRUE) else character(0)
-  )
-  
-  # check if needs deduplicating
-  if (isTRUE(unlist)){
-    # # Combine and deduplicate
-    unique(unlist(blacklist))
-  } else {
-    blacklist
-  }
-}
-
-# --- plot_perCluster function -------------------------------------------------------------
-plot_perCluster <- function(seu.obj, clusters, ident = "seuratClusters", reduction = 'umap', cluster_col,
-                            ncol, nrow, width = 12, height = 10, save.loc = NULL) {
-  Idents(seu.obj) <- ident
-  plot <- lapply(as.character(clusters), function(i) {
-    DimPlot(seu.obj, 
-            group.by = ident, 
-            reduction = reduction, 
-            alpha = 0.4,
-            cells.highlight = WhichCells(seu.obj, idents = i), 
-            cols.highlight = cluster_col[i], 
-            order = TRUE, repel = TRUE, raster = FALSE) + 
-      NoLegend() + NoAxes() + ggtitle(i) + 
-      theme(aspect.ratio = 1, title = element_text(size = 7), text = element_text(size = 7))
-  }) %>% 
-    ggpubr::ggarrange(plotlist = ., ncol = ncol, nrow = nrow)
-  
-  if(!is.null(save.loc)){
-    pdf(file.path(save.loc, "plots", paste0(seu.obj@project.name,".perCluster.pdf")), width = 12, height = 10)
-    print(plot)
-    dev.off()
-  } 
-  
-  return(plot)
+discrete_pal <- function(x) {
+  cols <- x %>% unique() %>% length() %>% Seurat::DiscretePalette(n = .)
+  return(setNames(cols, x))
 }
 
 # --- get_cell_counts function -------------------------------------------------------------
@@ -128,7 +69,7 @@ plotChromVARHeatmap <- function(so, ident = "group", averaged.by.ident = NULL, m
   
   # Average chromVAR expression of differential motifs
   if(!is.null(averaged.by.ident)){
-  group.by <- averaged.by.ident
+    group.by <- averaged.by.ident
   } else {
     group.by <- ident
   }
@@ -286,7 +227,7 @@ averaged_heatmap <- function(
   
   # Annotate genes
   if (!is.null(genes_to_label)) {
-
+    
     genes_to_label <- allnames[allnames %in% genes_to_label]
     index_w_genes <- which(allnames %in% genes_to_label)
     
@@ -326,16 +267,17 @@ averaged_heatmap <- function(
 get_max_clus <- function(seu.obj) { unique(seu.obj$seuratClusters) %>% levels() %>% as.numeric %>% max } 
 
 # --- plot_perCluster function -------------------------------------------------------------
-plot_perCluster <- function(seu.obj, clusters, ident = "seuratClusters", reduction = 'umap', cluster_col,
-                            ncol, nrow, width = 12, height = 10, save.loc, print = FALSE, ...) {
+plot_perCluster <- function(seu.obj, clusters, ident = "seuratClusters", reduction = 'umap', cluster_col = NULL,
+                            ncol, nrow, width = 12, height = 10, save.loc = NULL, print = FALSE, ...) {
+  
   Idents(seu.obj) <- ident
   plot <- lapply(as.character(clusters), function(i) {
     DimPlot(seu.obj, 
             group.by = ident, 
-            reduction = reduction, 
+            reduction = reduction,
             cells.highlight = WhichCells(seu.obj, idents = i), 
             cols.highlight = cluster_col[i], 
-            order = TRUE, repel = TRUE, raster = FALSE, ...) + 
+            order = TRUE, repel = TRUE, ...) + 
       NoLegend() + NoAxes() + ggtitle(i) + 
       theme(aspect.ratio = 1, title = element_text(size = 7), text = element_text(size = 7))
   }) %>% 
@@ -344,10 +286,76 @@ plot_perCluster <- function(seu.obj, clusters, ident = "seuratClusters", reducti
   if(isTRUE(print)){
     return(plot)
   } else {
-    pdf(file.path(save.loc, "plots",paste0(seu.obj@project.name,".perCluster.pdf")), width = 12, height = 10)
+    png(file.path(save.loc, "plots", paste0(seu.obj@project.name,".", ident,".perCluster.png")), width = 12, height = 10, units = 'in', res = 300)
     print(plot)
     dev.off()
   }
+  
+  return(plot)
+}
+
+# --- plot_perFeature function -------------------------------------------------------------
+plot_perFeature <- function(seu.obj, feature, ident = "PatientID", reduction = 'umap.harmony', 
+                            cols = c("lightgrey", "darkred"), 
+                            ncol = NULL, nrow = NULL, width = 10, height = 10, 
+                            save.loc = NULL, print = FALSE, ...) {
+  
+  Idents(seu.obj) <- ident
+  ident.list <- unique(Idents(seu.obj))
+  
+  # 1. Fetch ALL background coordinate limits so ggplot never clips any cells
+  embed_coords <- as.data.frame(Embeddings(seu.obj, reduction = reduction))
+  x_col <- colnames(embed_coords)[1]
+  y_col <- colnames(embed_coords)[2]
+  
+  x_lims <- range(embed_coords[[x_col]], na.rm = TRUE)
+  y_lims <- range(embed_coords[[y_col]], na.rm = TRUE)
+  
+  plot_list <- lapply(ident.list, function(i) {
+    target_cells <- WhichCells(seu.obj, idents = i)
+    
+    # 2. Base FeaturePlot on target cells
+    p <- FeaturePlot(seu.obj, 
+                     features = feature,
+                     cells = target_cells,
+                     reduction = reduction,
+                     cols = cols,
+                     order = TRUE, 
+                     ...)
+    
+    # 3. Add background layer FIRST & lock axis limits to the FULL dataset limits
+    p$layers <- c(
+      geom_point(data = embed_coords, 
+                 aes(x = .data[[x_col]], y = .data[[y_col]]), 
+                 color = "lightgrey", 
+                 size = 0.5, 
+                 inherit.aes = FALSE),
+      p$layers
+    )
+    
+    p <- p + 
+      coord_cartesian(xlim = x_lims, ylim = y_lims) + # Forces full viewport
+      NoLegend() + 
+      NoAxes() + 
+      ggtitle(paste0(feature, " - ", i)) + 
+      theme(aspect.ratio = 1, 
+            title = element_text(size = 8), 
+            text = element_text(size = 8))
+    
+    return(p)
+  })
+  
+  combined_plot <- ggpubr::ggarrange(plotlist = plot_list, ncol = ncol, nrow = nrow)
+  
+  if (!isTRUE(print) && !is.null(save.loc)) {
+    dir.create(file.path(save.loc, "plots"), showWarnings = FALSE, recursive = TRUE)
+    png(file.path(save.loc, "plots", paste0(seu.obj@project.name, ".", feature, ".perFeature.png")), 
+        width = width, height = height, units = 'in', res = 300)
+    print(combined_plot)
+    dev.off()
+  }
+  
+  return(combined_plot)
 }
 
 # --- get_cell_counts function -------------------------------------------------------------
@@ -398,10 +406,11 @@ get_blacklist <- function(seu, species = "human", include_ribo = FALSE, unlist =
   # Define regex for IG genes and ribosomal genes by species
   ig_grep <- ifelse(species == "human", "^IG[HKL]", "^Ig[hlk]")
   ribo_grep <- ifelse(species == "human", "^RP[SL]", "^Rp[sl]")  # RPS/RPL vs Rps/Rpl
+  annotations <- if (species == "human") qs_read("/researchers/nicole.saw/references/ensembl/EnsDb.Hsapiens.v86_annotations.qs") else qs_read("/researchers/nicole.saw/references/ensembl/EnsDb.Mmusculus.v79_annotations.qs") %>% data.frame
   
   # Build blacklist components
   blacklist <- list(
-    Mito = grep("^mt", rownames(seu), value = TRUE),
+    Mito = grep("^[Mm][Tt]-", rownames(seu), value = TRUE),
     TCR = intersect(
       rownames(seu), 
       scGate::genes.blacklist.default[[ifelse(species == "human", "Hs", "Mm")]]$TCR
@@ -410,6 +419,13 @@ get_blacklist <- function(seu, species = "human", include_ribo = FALSE, unlist =
     Ribosomal = if (include_ribo) grep(ribo_grep, rownames(seu), value = TRUE) else character(0)
   )
   
+  # further filtering by gene biotype
+  ind <- if (species == "human") which(annotations$GENEBIOTYPE %in% c("protein_coding", "LRG_gene")) else which(annotations$gene_biotype %in% c("protein_coding"))
+  genes <- if (species == "human") annotations$SYMBOL[!ind] %>% unique else annotations$gene_name[!ind] %>% unique
+  genes2 <- if (species == "human") setdiff(rownames(seu), annotations$SYMBOL[ind] %>% unique)  else setdiff(rownames(seu), annotations$gene_name[ind] %>% unique)
+  
+  blacklist <- unique(c(blacklist, genes, genes2))
+  
   # check if needs deduplicating
   if (isTRUE(unlist)){
     # # Combine and deduplicate
@@ -417,4 +433,85 @@ get_blacklist <- function(seu, species = "human", include_ribo = FALSE, unlist =
   } else {
     blacklist
   }
+}
+
+# --- plot alluvial function -------------------------------------------------------------
+suppressPackageStartupMessages({
+  library(ggplot2)
+  library(ggalluvial)
+  library(dittoSeq)
+})
+
+# make ditto barplot ----
+make_ditto_barplot <- function(seu, var, group.by, split.by = NULL, color.panel, ggtitle = "", ncol = 1, data.out = NULL){
+  theme_custom <- theme(text = element_text(size = 7), 
+                        axis.text.x = element_text(angle = 90, size = 7, hjust = 1))
+  
+  p <- dittoBarPlot(seu, var = var, group.by = group.by, split.by = split.by, split.ncol = ncol,
+                    xlab = "celltypist_label", retain.factor.levels = TRUE, color.panel = color.panel) +
+    ggtitle(ggtitle) +
+    theme_custom +
+    guides(color = guide_legend(ncol = 2)) + coord_flip()
+  
+  print(p)
+  
+  if(isTRUE(data.out)){
+    df <- dittoBarPlot(seu, var = var, group.by = group.by, split.by = split.by, split.ncol = ncol,
+                       xlab = "celltypist_label", retain.factor.levels = TRUE, color.panel = color.panel, 
+                       data.out = data.out)
+    return(df)
+  } else {
+    return(p)
+  }
+}
+# plot alluvial ----
+plot_alluvial <- function(
+    seu,
+    var = "High.hierarchy.cell.types",
+    group.by = "PatientID",
+    split.by = "sampleSourceSuperset",
+    color.panel = NULL,
+    ncol = 5,
+    x_angle = 60,
+    alluvium_width = 1/6,
+    alpha = 0.75
+) {
+  # 1. Extract data using dittoSeq
+  plot_df <- make_ditto_barplot(
+    seu = seu,
+    var = var,
+    group.by = group.by,
+    split.by = split.by,
+    color.panel = color.panel,
+    data.out = TRUE
+  )
+  
+  # 2. Construct ggplot using dynamic symbol evaluation (.data[[...]])
+  p <- ggplot(
+    plot_df$data,
+    aes(
+      x = .data[[split.by]],
+      stratum = .data[["label"]],
+      alluvium = .data[["label"]],
+      y = .data[["percent"]],
+      fill = .data[["label"]]
+    )
+  ) +
+    geom_alluvium(width = alluvium_width, alpha = alpha) +
+    geom_stratum(width = alluvium_width, color = "grey30") +
+    facet_wrap(~ grouping, scales = "free_y", ncol = ncol) +
+    theme_minimal() +
+    theme(
+      plot.title = element_text(face = "bold", size = 14),
+      strip.text = element_text(face = "bold", size = 12),
+      axis.text.x = element_text(face = "bold", size = 11, angle = x_angle, hjust = 1),
+      panel.grid.major.x = element_blank()
+    )
+  
+  # 3. Add custom colors if provided
+  if (!is.null(color.panel)) {
+    p <- p + scale_fill_manual(values = color.panel)
+  }
+  
+  return(p)
 }

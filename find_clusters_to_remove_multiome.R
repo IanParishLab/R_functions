@@ -12,7 +12,9 @@ find_clusters_to_remove_multiome <- function(so,
                                              verbose = FALSE,
                                              process_wsnn = TRUE, 
                                              save.loc,
-                                             seed.use) {
+                                             seed.use,
+                                             normalize = TRUE,
+                                             scale = TRUE) {
   suppressPackageStartupMessages({
     require(Seurat)
     require(tidyverse)
@@ -40,16 +42,21 @@ find_clusters_to_remove_multiome <- function(so,
     message("processing RNA assay...")
     DefaultAssay(so) <- assay
     
-    if (!("integrated" %in% assays)) {
+    # Normalization and scaling
+    if (isTRUE(normalize)) {
       so <- NormalizeData(so)
-      so <- FindVariableFeatures(so)
-      VariableFeatures(so) <- unique(setdiff(VariableFeatures(so), bk.list))
-      if (!is.null(features)) {
-        VariableFeatures(so) <- unique(c(VariableFeatures(so), features))
-      }
     }
     
-    so <- ScaleData(so, vars.to.regress = vars.to.regress)
+    so <- FindVariableFeatures(so)
+    VariableFeatures(so) <- setdiff(VariableFeatures(so), bk.list)
+    if (!is.null(features)) {
+      VariableFeatures(so) <- unique(c(VariableFeatures(so), features))
+    }
+    
+    if (isTRUE(scale)) {
+      so <- ScaleData(so, vars.to.regress = vars.to.regress)
+    } 
+    
     so <- RunPCA(so, npcs = npcs, verbose = verbose)
     so <- RunUMAP(so, dims = 1:npcs, reduction.name = "umap.rna", reduction.key = "rnaUMAP_", verbose = verbose, seed.use = seed.use)
     message("seed.use = ", seed.use)
